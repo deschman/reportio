@@ -15,8 +15,9 @@ import configparser as cfg  # working with config file
 from datetime import date as dt_date  # check backup files
 from datetime import datetime as dt_dt  # timestamping
 from tempfile import NamedTemporaryFile  # send data to HDD to free up RAM
-import pyodbc  # connect to databases
 import pandas as pd  # assorted data wrangling and IO
+import pyodbc  # connect to system databases
+from sqlite3 import connect as sqlite3_connect  # connect to mysql
 from openpyxl import load_workbook  # writing to multiple tabs
 import dask.delayed as dd  # multithreading/scheduling
 from mymodules.reporting.errors import LogError, ConfigError, ReportNameError,\
@@ -91,7 +92,7 @@ class ReportTemplate(ABC):
             print(dt_dt.now(), strLevel + ':', strMsg)
 
     # @_decLog
-    def _backupData(self, funOptional=None):
+    def backupData(self, funOptional=None):
         """For internal use. Saves temporary files to backup folder in the
         event of CRICITAL failure. Backup files are utilized if script is run
         again the same day as the backup.
@@ -107,7 +108,7 @@ class ReportTemplate(ABC):
             if hasattr(objFile, 'name'):
                 if objFile.name.split('.')[-1] == 'gzip':
                     dirDst = os_path_join(self.dirBackup,
-                                          objFile.name.split('_')[-1])
+                                          "_" + objFile.name.split('_')[-1])
                     self.log("Backing up '{0}' to '{1}'".format(
                         objFile.name, objFile.name), 'DEBUG')
                     pd.read_parquet(objFile).to_parquet(dirDst,
@@ -219,7 +220,7 @@ class ReportTemplate(ABC):
         # Read config file if present
         self.objCfg = cfg.ConfigParser()
         if not os_path_isfile(self.dirCfg):
-            self.log("Config location: '{0}'")
+            self.log("Config location: '{0}'".format(self.dirCfg))
             raise ConfigError(self.log)
         self.objCfg.read(self.dirCfg)
         self._dirTempFiles = self.objCfg['REPORT']['temp_files_folder']
@@ -248,6 +249,12 @@ class ReportTemplate(ABC):
             self.log("Creating backup dir at '{0}'".format(self.dirBackup),
                      'DEBUG')
             os_makedirs(self.dirBackup)
+        # Make temporary files dir if needed
+        self.dirTempFolder = self.objCfg['REPORT']['temp_files_folder']
+        if not os_path_isdir(self.dirTempFolder):
+            self.log("Creating temp dir at '{0}'".format(
+                self.dirTempFolder))
+            os_makedirs(self.dirTempFolder)
         # Inform user
         self.log("Starting report with {0} log located at '{1}'"
                  .format(strNewLog, dirLog))
@@ -281,8 +288,11 @@ class ReportTemplate(ABC):
         # Loop until connected
         while strDb not in dctConnected.keys():
             try:
-                self.log("Connecting to {0}".format(strDb), 'DEBUG')
-                objCnxn = pyodbc.connect(strCnxn)
+                self.log("Connecting to {0}".format(strDb))
+                if strDb in ['ozark1', 'datawhse']:
+                    objCnxn = pyodbc.connect(strCnxn)
+                elif strDb == 'mysql':
+                    objCnxn = sqlite3_connect(strCnxn)
                 dctConnected[strDb] = objCnxn
                 self.log("Connection successful", 'DEBUG')
             # If login fails, get user id/password and retry
@@ -304,8 +314,7 @@ class ReportTemplate(ABC):
                 strPWD = input("Enter PASSWORD: ")
                 strCnxn = 'UID=' + strUID + ';PWD=' + strPWD + ';' + strCnxn
         objCnxn = dctConnected.get(strDb)
-        self.log("Using existing connection object '{0}'".format(objCnxn),
-                 'DEBUG')
+        self.log("Using connection object '{0}'".format(objCnxn), 'DEBUG')
         return objCnxn
 
     # @_decLog
@@ -322,8 +331,8 @@ class ReportTemplate(ABC):
         as engine"""
         # Creates blank Excel file if needed
         if not os_path_isfile(dirReport):
-                pd.DataFrame().to_excel(dirReport)
-        # Creates Excel WRiter
+            pd.DataFrame().to_excel(dirReport)
+        # Creates Excel Writer
         objWriter = pd.ExcelWriter(dirReport, engine='openpyxl')
         objWriter.book = load_workbook(dirReport)
         objWriter.sheets = dict((ws.title, ws) for ws in
@@ -337,46 +346,102 @@ class ReportTemplate(ABC):
 
         Parameters
         ----------
-        strName: string, name for dataset, cannot use '_', for file path
+        strName: string, name for dataset, cannot use '_' for file path, leave
+            as empty string to return dataframe instead of temporary file
         strSQL: string, SQL statement, formatted for desired database
         strDbType: {'ozark1', 'datawhse', 'sailfish', 'access', 'mysql'}
         objCnxn: pyodbc connection object, default None
         dirDb: string, database location, must be provided if strDbType is
-            'access' or 'mysql', default None
+            'access', default None
 
         Returns
         -------
-        File: file object, contains data from query
+        Data: object, contains data from query
         Connection: object, from pyodbc module, database connection"""
         # Check config file for connection string
         if strDbType not in self.objCfg['ODBC']:
             self.log("Config location: {0}".format(self.dirCfg), 'DEBUG')
             raise UnexpectedDbType(self.log, strDbType)
-        # Create new connection if needed
-        if objCnxn is None:
-            self.log("Connecting to database")
-            objCnxn = self._getConnection(strDbType,
-                                          self.objCfg['ODBC'][strDbType])
-        # Attempt to create temporary file
-        try:
-            objFile = NamedTemporaryFile(
-                dir=self.objCfg['REPORT']['temp_files_folder'],
-                suffix="_" + strName + '.gzip')
-        except OSError as err:
-            self.log(err, 'DEBUG')
-            raise DatasetNameError(self.log, strName)
-        dirBackupFile = os_path_join(self.dirBackup,
-                                     '_' + strName + '.gzip')
+        if strName != '':
+            # Attempt to create temporary file
+            try:
+                objData = NamedTemporaryFile(
+                    dir=self.dirTempFolder,
+                    suffix="_" + strName + '.gzip')
+            except OSError as err:
+                self.log(err, 'DEBUG')
+                raise DatasetNameError(self.log, strName)
+        dirBackupFile = os_path_join(self.dirBackup, '_' + strName + '.gzip')
         if not os_path_isfile(dirBackupFile):
+            # Create new connection if needed
+            if objCnxn is None:
+                objCnxn = self._getConnection(strDbType,
+                                              self.objCfg['ODBC'][strDbType])
             self.log("Querying database")
-            pd.read_sql(strSQL, objCnxn).to_parquet(objFile,
-                                                    compression='gzip')
+            dfTemp = pd.read_sql(strSQL, objCnxn)
         else:
             self.log("Reading backup file")
-            pd.read_parquet(dirBackupFile).to_parquet(objFile,
-                                                      compression='gzip')
-        self._lstFiles.append(objFile)
-        return objFile, objCnxn
+            dfTemp = pd.read_parquet(dirBackupFile)
+        if strName != '':
+            dfTemp.to_parquet(objData, compression='gzip')
+            self._lstFiles.append(objData)
+        else:
+            objData = dfTemp
+        return objData, objCnxn
+
+    # @_decLog
+    def mergeFiles(self, strTempFile, objFile1, objFile2, strMergeCol,
+                   strHow='inner', lstCols1=None, lstCols2=None,
+                   lstColsFin=None):
+        """Merges two parquet files into one
+
+        Parameters
+        ----------
+        strTempFile : string, output file name
+        objFile1: object, file containing data from pandas
+        objFile2: object, file containing data from pandas
+        strMergeCol: string, column used for merge
+        strHow: string, merge type
+        lstCols1: list, columns merged from first file, default all columns
+        lstCols2: list, columns merged from second file, default all columns
+        lstColsFin: list, columns listed in result file
+
+        Returns
+        -------
+        objTempFile : object, merged file"""
+        # Check for backup file
+        dirBackupFile = os_path_join(self.dirBackup, '_' + strTempFile +
+                                     '.gzip')
+        if os_path_isfile(dirBackupFile):
+            self.log("Reading backup file")
+            pd.read_parquet(dirBackupFile)
+        else:
+            self.log("Merging files")
+            # Read file to pandas
+            if lstCols1 is not None:
+                df1 = pd.read_parquet(objFile1)[lstCols1]
+            else:
+                df1 = pd.read_parquet(objFile1)
+            if lstCols2 is not None:
+                df2 = pd.read_parquet(objFile2)[lstCols2]
+            else:
+                df2 = pd.read_parquet(objFile2)
+            # Merge dataframes
+            if lstColsFin is not None:
+                df2 = df2.merge(df1, strHow, strMergeCol)[lstColsFin]
+            else:
+                df2 = df2.merge(df1, strHow, strMergeCol)
+            # Clean up
+            del df1
+            # Remove duplicates
+            df2 = df2.drop_duplicates(ignore_index=True)
+            # Initialize temp file
+            objTempFile = NamedTemporaryFile(
+                dir=self.dirTempFolder,
+                suffix='_' + strTempFile + '.gzip')
+            # Send data to parquet
+            df2.to_parquet(objTempFile, compression='gzip')
+        return objTempFile
 
     # @_decLog
     def exportData(self, objFile, dirReport, strSheet='', objXlWriter=None):
@@ -431,11 +496,11 @@ class ReportTemplate(ABC):
 
 class SimpleReport(ReportTemplate):
 
-    def _backupData(self):
+    def backupData(self):
         """For internal use. Saves temporary files and metadata to backup
         folder in the event of CRICITAL failure. Backup files are utilized if
         script is run again the same day as the backup."""
-        super()._backupData(self._backupMetadata)
+        super().backupData(self._backupMetadata)
 
     def _delDataBackup(self):
         """For internal use. Deletes all gzip, txt, and xlsx files in backup
@@ -483,7 +548,8 @@ class SimpleReport(ReportTemplate):
 
             # Class specific functions
             def _backupMetadata():
-                dirFile = os_path_join(self.dirBackup, self.strMetadataFile)
+                dirFile = os_path_join(self.dirBackup,
+                                       "_" + self.strMetadataFile)
                 self.log("Backing up metadata to '{0}'".format(dirFile),
                          'DEBUG')
                 self.dfMetadata.to_excel(dirFile, index=False)
@@ -556,8 +622,8 @@ class SimpleReport(ReportTemplate):
                                               objCnxn is None, dirDb), 'DEBUG')
             self.dfMetadata = self.dfMetadata.append(pd.DataFrame(
                 [[strName, strSQL, strDbType, objCnxn, dirDb]],
-                columns=['strName', 'strSQL', 'strDbType', 'objCnxn', 'dirDb'])
-                , ignore_index=True)
+                columns=['strName', 'strSQL', 'strDbType', 'objCnxn', 'dirDb']
+                ), ignore_index=True)
             self.lstQueries = list(self.dfMetadata['strName'])
         else:
             self.log("Query with name '{0}' already exists. Query not added"
