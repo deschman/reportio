@@ -15,7 +15,11 @@ import configparser as cfg  # working with config file
 from datetime import date as dt_date  # check backup files
 from datetime import datetime as dt_dt  # timestamping
 from tempfile import NamedTemporaryFile  # send data to HDD to free up RAM
+import gzip  # file compression
+from shutil import copyfileobj as shutil_copyfileobj  # copy data to gzip file
+from gc import collect as gc_collect
 import pandas as pd  # assorted data wrangling and IO
+from fastparquet import ParquetFile  # working with oversided parquet files
 import pyodbc  # connect to system databases
 from sqlite3 import connect as sqlite3_connect  # connect to mysql
 from openpyxl import load_workbook  # writing to multiple tabs
@@ -28,18 +32,21 @@ default_log_dir = os_path_join(os_path_dirname(sys_argv[0]), 'log.txt')
 default_config_dir = os_path_join(os_path_dirname(__file__), 'config.txt')
 
 
-# TODO: get this working as a decorator so that log shuts down after each use
+# TODO: get this working as a decorator so that log file closes after use
 def _decLog(fun=None):
     def wrapper(*args, **kwargs):
-        # Find 'self' object
+        # TODO: find 'self' object - untested
         report = kwargs.get('self')
         if report is None:
             for i in args:
                 if hasattr(i, 'dirLog'):
                     report = i
         if report is None:
+            report = globals().get('self')
+        if report is None:
             raise LogError
         # Configure logger
+        import logging
         strNewLog = "existing"
         try:
             if not os_path_isfile(report.dirLog):
@@ -54,6 +61,8 @@ def _decLog(fun=None):
         if callable(fun):
             fun(args, kwargs)
         logging.shutdown()
+        del logging
+        gc_collect()
         return strNewLog
     return wrapper
 
@@ -106,13 +115,18 @@ class ReportTemplate(ABC):
         # Copy parquet files
         for objFile in self._lstFiles:
             if hasattr(objFile, 'name'):
-                if objFile.name.split('.')[-1] == 'gz':
-                    dirDst = os_path_join(self.dirBackup,
-                                          objFile.name.split('__')[-1])
-                    self.log("Backing up '{0}' to '{1}'".format(
-                        objFile.name, objFile.name), 'DEBUG')
-                    pd.read_parquet(objFile).to_parquet(dirDst,
-                                                        compression='gzip')
+                if objFile.name.split('.')[-1] == 'gz' and os_path_isfile(
+                        objFile.name):
+                    try:
+                        dirDst = os_path_join(self.dirBackup,
+                                              objFile.name.split('__')[-1])
+                        self.log("Backing up '{0}' to '{1}'".format(
+                            objFile.name, objFile.name), 'DEBUG')
+                        pd.read_parquet(objFile).to_parquet(dirDst,
+                                                            compression='gzip')
+                    # If one backup fails, try other files
+                    except AttributeError:
+                        continue
         # Run optional function if included
         if callable(funOptional):
             funOptional()
@@ -206,6 +220,7 @@ class ReportTemplate(ABC):
         if pyodbc.pooling:
             pyodbc.pooling = False
         # Configure logger
+        # _decLog.wrapper(self)
         strNewLog = "existing"
         try:
             if not os_path_isfile(self.dirLog):
@@ -267,31 +282,44 @@ class ReportTemplate(ABC):
         self.lstFiles = self._attemptResume()
 
     # @_decLog
-    def _getTempFile(self, dirFile, strName, dfData):
-        """For internal use. Creates tempfile object and writes dataframe to
-        it. File will always use gzip compression and end in .gz. Raises
-        DatasetNameError if strName cannot be used in file.
+    def _read_parquet(self, objFile, lstCols=None):
+        """OBSELETE. For internal use. Reads dataframe from parquet into
+        pandas. Handles large files without throwing odd errors.
 
         Parameters
         ----------
-        dirFile: directory, location where temporary file will be saved
-        strName: string, name appended to end of temporary file
-        dfData: DataFrame, data to be written to temporary file
+        objFile: object, file containing data from pandas
+        lstCols: list, columns to return from file, will return all if
+            None, default None
 
         Returns
         -------
-        File: object, from tempfile module, contains data from dataframe
-            parameter"""
+        DataFrame: object, contains data from file"""
+        # TODO: follow up on bug report on github
         try:
-            objFile = NamedTemporaryFile(
-                dir=self.dirTempFolder,
-                suffix="__" + strName + '.gz')
-        except OSError as err:
-            self.log(err, 'DEBUG')
-            raise DatasetNameError(self.log, strName)
-        dfData.to_parquet(objFile, compression='gzip')
-        self._lstFiles.append(objFile)
-        return objFile
+            df = pd.read_parquet(objFile)
+        # A data error is causing OSError, recover data and route through excel
+        except OSError:
+            # Ensure file is gzipped
+            try:
+                gzip.GzipFile(fileobj=objFile).read()
+            except OSError:
+                # Make a gzipped copy
+                objFileGz = gzip.open(objFile.name + '.gz', 'wb')
+                shutil_copyfileobj(objFile, objFileGz)
+                objFile = objFileGz
+            # Chunking prevents OSError but deletes tempfiles
+            df = pd.concat((dfPart for dfPart in
+                            ParquetFile(objFile).iter_row_groups()),
+                           axis=0)
+            # Create new tempfile with same data and name
+            self.getTempFile(objFile.name.split('__')[-1], df)
+            if 'objFileGz' in locals():
+                objFileGz.close()
+                os_remove(objFileGz)
+        if lstCols is not None:
+            df = df[lstCols]
+        return df
 
     # @_decLog
     def _getConnection(self, strDb, strCnxn, dctConnected={}):
@@ -366,14 +394,44 @@ class ReportTemplate(ABC):
         return objWriter
 
     # @_decLog
-    def getData(self, strName, strSQL, strDbType, objCnxn=None, dirDb=''):
+    def getTempFile(self, strName, dfData, dirFolder=None):
+        """Creates tempfile object and writes dataframe to
+        it. File will always use gzip compression and end in .gz. Raises
+        DatasetNameError if strName cannot be used in file. Overwriting may
+        cause a critical error and data corruption.
+
+        Parameters
+        ----------
+        strName: string, name appended to end of temporary file
+        dfData: DataFrame, data to be written to temporary file
+        dirFolder: directory, folder where file is stored, will default to
+            config location if None, default None
+
+        Returns
+        -------
+        File: object, from tempfile module, contains data from dataframe
+            parameter"""
+        if dirFolder is None:
+            dirFolder = self.dirTempFolder
+        try:
+            objFile = NamedTemporaryFile(dir=dirFolder,
+                                         suffix="__" + strName + '.gz')
+        except OSError as err:
+            self.log(err, 'DEBUG')
+            raise DatasetNameError(self.log, strName)
+        dfData.to_parquet(objFile, compression='gzip')
+        self._lstFiles.append(objFile)
+        return objFile
+
+    # @_decLog
+    def getData(self, strTempFile, strSQL, strDbType, objCnxn=None, dirDb=''):
         """Retrieve data from database via odbc. Will prompt user for login as
         needed.
 
         Parameters
         ----------
-        strName: string, name for dataset, cannot use '__' for file path, leave
-            as empty string to return dataframe instead of temporary file
+        strTempFile: string, name for dataset, cannot use '__' for file path,
+            leave as empty string to return dataframe instead of temporary file
         strSQL: string, SQL statement, formatted for desired database
         strDbType: {'ozark1', 'datawhse', 'sailfish', 'access', 'mysql'}
         objCnxn: pyodbc connection object, default None
@@ -388,7 +446,7 @@ class ReportTemplate(ABC):
         if strDbType not in self.objCfg['ODBC']:
             self.log("Config location: {0}".format(self.dirCfg), 'DEBUG')
             raise UnexpectedDbType(self.log, strDbType)
-        dirBackupFile = os_path_join(self.dirBackup, '__' + strName + '.gz')
+        dirBackupFile = os_path_join(self.dirBackup, strTempFile + '.gz')
         if not os_path_isfile(dirBackupFile):
             # Create new connection if needed
             if objCnxn is None:
@@ -399,8 +457,8 @@ class ReportTemplate(ABC):
         else:
             self.log("Reading backup file")
             dfTemp = pd.read_parquet(dirBackupFile)
-        if strName != '':
-            objData = self._getTempFile(self.dirTempFolder, strName, dfTemp)
+        if strTempFile != '':
+            objData = self.getTempFile(strTempFile, dfTemp)
         else:
             objData = dfTemp
         return objData, objCnxn
@@ -424,53 +482,25 @@ class ReportTemplate(ABC):
 
         Returns
         -------
-        objTempFile : object, merged file"""
+        objData : object, merged file"""
         # Check for backup file
-        dirBackupFile = os_path_join(self.dirBackup,
-                                     '__' + strTempFile + '.gz')
+        dirBackupFile = os_path_join(self.dirBackup, strTempFile + '.gz')
         if os_path_isfile(dirBackupFile):
             self.log("Reading backup file")
-            pd.read_parquet(dirBackupFile)
+            dfTemp = pd.read_parquet(dirBackupFile)
+            if strTempFile != '':
+                objData = self.getTempFile(strTempFile, dfTemp)
         else:
-            def _readToDf(objFile, lstCols=None):
-                """For internal use. Reads dataframe from parquet into pandas.
-                Handles large files without throwing odd errors.
-
-                Parameters
-                ----------
-                objFile: object, file containing data from pandas
-                lstCols: list, columns to return from file, will return all if
-                    None, default None
-
-                Returns
-                -------
-                DataFrame: object, contains data from file"""
-                try:
-                    df = pd.read_parquet(objFile)
-                # If file is large, throws OSError
-                except OSError:
-                    # Chunking prevents OSError but deletes tempfiles
-                    df = pd.concat((dfPart for dfPart in
-                                    fp_PF(objFile).iter_row_groups()), axis=0)
-                    # Create new tempfile with same data
-                    self._getTempFile(self.dirTempFolder,
-                                      objFile.name.split('__'),
-                                      df)
-                if lstCols is not None:
-                    df = df[lstCols]
-                return df
             self.log("Merging files")
-            df = _readToDf(objFile1, lstCols1).merge(_readToDf(objFile2,
-                                                               lstCols2),
-                                                     strHow,
-                                                     strMergeCol)
+            df = pd.read_parquet(objFile1, columns=lstCols1)
+            df2 = pd.read_parquet(objFile2, columns=lstCols2)
+            df = df.merge(df2, strHow, strMergeCol)
+            del df2
             if lstColsFin is not None:
                 df = df[lstColsFin]
             df = df.drop_duplicates(ignore_index=True)
-            objTempFile = self._getTempFile(self.dirTempFolder,
-                                            strTempFile,
-                                            df)
-        return objTempFile
+            objData = self.getTempFile(strTempFile, df)
+        return objData
 
     # @_decLog
     def exportData(self, objFile, dirReport, strSheet='', objXlWriter=None):
@@ -554,6 +584,8 @@ class SimpleReport(ReportTemplate):
                      columns=['strName', 'strSQL', 'strDbType', 'objCnxn',
                               'dirDb'])):
         """Will connect, query, and export data for each row in dfMetadata.
+        Metadata may be added using .addQuery after creation of the
+        SimpleReport object.
 
         Parameters
         ----------
@@ -569,7 +601,7 @@ class SimpleReport(ReportTemplate):
              objCnxn: pyodbc connection object, default None
              dirDb: string, database location, must be provided if strDbType is
              'access' or 'mysql', default None)"""
-        def defineVars(dfMetadata=dfMetadata):
+        def _defineVars(dfMetadata=dfMetadata):
             # Base variables
             self.strMetadataFile = "Metadata.xlsx"
             self.dfMetadata = dfMetadata
@@ -606,7 +638,7 @@ class SimpleReport(ReportTemplate):
                     self.log("Metadata not found! Restarting report.", 'ERROR')
                     self._delDataBackup()
             self._restoreMetadata = _restoreMetadata
-        super().__init__(strName, dirLog, dirConfig, defineVars)
+        super().__init__(strName, dirLog, dirConfig, _defineVars)
 
     def exportData(self, objFile, dirReport, strSheet='', lstDirs=[]):
         """Export report data to report file. Will change file type to CSV as
