@@ -3,9 +3,9 @@
 
 # TODO: find version dependancies for all of these
 # Let users know if they're missing any of our hard dependencies
-hard_dependencies = ('abc', 'sys', 'os', 'logging', 'configparser', 'datetime',
-                     'tempfile', 'gzip', 'gc', 'pyodbc', 'pandas', 'dask',
-                     'fastparquet', 'sqlite3', 'openpyxl')
+hard_dependencies = ('abc', 'sys', 'os', 'logging', 'threading',
+                     'configparser', 'datetime', 'tempfile', 'gc', 'pandas',
+                     'pyodbc', 'dask', 'sqlite3', 'openpyxl', 'tqdm')
 missing_dependencies = []
 
 for dependency in hard_dependencies:
@@ -19,8 +19,8 @@ if missing_dependencies:
         "Unable to import required dependencies:\n" + "\n".join(
             missing_dependencies))
 
-from mymodules.reporting.templates import *
-from mymodules.reporting.errors import *
+from reporting.templates import *
+from reporting.errors import *
 
 # module level doc-string
 __doc__ = """
@@ -36,6 +36,6 @@ Limitations:
      - User should have solid grasp Python and object oriented programming
      - User should be familiar with available data sources and structures
      - User must be prepared to interact with data sources using SQL
-     - User must automate and deliver reports outside the scope of this module
+     - User must deliver reports outside the scope of this module
 """
-__version__ = '0.1a1.dev1'
+__version__ = '0.1a1'

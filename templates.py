@@ -11,60 +11,25 @@ from os.path import join as os_path_join  # path joinging
 from os.path import isfile as os_path_isfile  # file validation
 from os.path import isdir as os_path_isdir  # directory validation
 import logging  # process logging
+import threading  # thread identification
 import configparser as cfg  # working with config file
 from datetime import date as dt_date  # check backup files
 from datetime import datetime as dt_dt  # timestamping
 from tempfile import NamedTemporaryFile  # send data to HDD to free up RAM
-import gzip  # file compression
-from shutil import copyfileobj as shutil_copyfileobj  # copy data to gzip file
-from gc import collect as gc_collect
 import pandas as pd  # assorted data wrangling and IO
-from fastparquet import ParquetFile  # working with oversided parquet files
 import pyodbc  # connect to system databases
+import dask.delayed as dd  # multithreading/scheduling
 from sqlite3 import connect as sqlite3_connect  # connect to mysql
 from openpyxl import load_workbook  # writing to multiple tabs
-import dask.delayed as dd  # multithreading/scheduling
-from mymodules.reporting.errors import LogError, ConfigError, ReportNameError,\
+from tqdm import tqdm  # progress bar
+from reporting.errors import LogError, ConfigError, ReportNameError,\
     ODBCConnectionError, UnexpectedDbType, DatasetNameError, EmptyReport
+from reporting.decorators import decLog as _decLog
+from reporting.future.progress import ProgressBar
 
 # Default variables
 default_log_dir = os_path_join(os_path_dirname(sys_argv[0]), 'log.txt')
 default_config_dir = os_path_join(os_path_dirname(__file__), 'config.txt')
-
-
-# TODO: get this working as a decorator so that log file closes after use
-def _decLog(fun=None):
-    def wrapper(*args, **kwargs):
-        # TODO: find 'self' object - untested
-        report = kwargs.get('self')
-        if report is None:
-            for i in args:
-                if hasattr(i, 'dirLog'):
-                    report = i
-        if report is None:
-            report = globals().get('self')
-        if report is None:
-            raise LogError
-        # Configure logger
-        import logging
-        strNewLog = "existing"
-        try:
-            if not os_path_isfile(report.dirLog):
-                open(report.dirLog, 'w').close()
-                strNewLog = "new"
-            strFormat = '%(asctime)s %(levelname)s: %(message)s'
-            logging.basicConfig(filename=report.dirLog, filemode='a',
-                                format=strFormat, level=logging.DEBUG)
-        except Exception as err:
-            print(err)
-            raise LogError
-        if callable(fun):
-            fun(args, kwargs)
-        logging.shutdown()
-        del logging
-        gc_collect()
-        return strNewLog
-    return wrapper
 
 
 class ReportTemplate(ABC):
@@ -85,6 +50,9 @@ class ReportTemplate(ABC):
             'CRITICAL' prints to log file and console, requires user input to
             close, script/config edits are needed to fix},
             default 'INFO'"""
+        # Prevents spam by redirecting log level when multithreading to debug
+        if threading.current_thread() is not threading.main_thread():
+            strLevel = "DEBUG"
         if strLevel == 'DEBUG':
             logging.debug(strMsg)
         elif strLevel == 'INFO':
@@ -226,7 +194,7 @@ class ReportTemplate(ABC):
             if not os_path_isfile(self.dirLog):
                 open(self.dirLog, 'w').close()
                 strNewLog = "new"
-            strFormat = '%(asctime)s %(levelname)s: %(message)s'
+            strFormat = '%(asctime)s %(threadName)s %(levelname)s: %(message)s'
             logging.basicConfig(filename=self.dirLog, filemode='a',
                                 format=strFormat, level=logging.DEBUG)
         except Exception as err:
@@ -280,46 +248,6 @@ class ReportTemplate(ABC):
             funOptional()
         # Attempt resume
         self.lstFiles = self._attemptResume()
-
-    # @_decLog
-    def _read_parquet(self, objFile, lstCols=None):
-        """OBSELETE. For internal use. Reads dataframe from parquet into
-        pandas. Handles large files without throwing odd errors.
-
-        Parameters
-        ----------
-        objFile: object, file containing data from pandas
-        lstCols: list, columns to return from file, will return all if
-            None, default None
-
-        Returns
-        -------
-        DataFrame: object, contains data from file"""
-        # TODO: follow up on bug report on github
-        try:
-            df = pd.read_parquet(objFile)
-        # A data error is causing OSError, recover data and route through excel
-        except OSError:
-            # Ensure file is gzipped
-            try:
-                gzip.GzipFile(fileobj=objFile).read()
-            except OSError:
-                # Make a gzipped copy
-                objFileGz = gzip.open(objFile.name + '.gz', 'wb')
-                shutil_copyfileobj(objFile, objFileGz)
-                objFile = objFileGz
-            # Chunking prevents OSError but deletes tempfiles
-            df = pd.concat((dfPart for dfPart in
-                            ParquetFile(objFile).iter_row_groups()),
-                           axis=0)
-            # Create new tempfile with same data and name
-            self.getTempFile(objFile.name.split('__')[-1], df)
-            if 'objFileGz' in locals():
-                objFileGz.close()
-                os_remove(objFileGz)
-        if lstCols is not None:
-            df = df[lstCols]
-        return df
 
     # @_decLog
     def _getConnection(self, strDb, strCnxn, dctConnected={}):
@@ -741,7 +669,7 @@ class SimpleReport(ReportTemplate):
         # Define single thread function
         def singleThread(lstDirs=[]):
             # Loop metadata dataframe
-            for _, row in self.dfMetadata.iterrows():
+            for _, row in tqdm(self.dfMetadata.iterrows()):
                 # Get data
                 objDataFile = self.getData(str(row['strName']),
                                            str(row['strSQL']),
@@ -772,7 +700,9 @@ class SimpleReport(ReportTemplate):
                     lstDirs)
             # Finalize dask schedule
             dlyEvent = dd(set)(lstDirs)
-            lstDirs = list(dlyEvent.compute())
+            # TODO: change this implementation when tqdm supports dask
+            with ProgressBar():
+                lstDirs = list(dlyEvent.compute())
 
             return lstDirs
 

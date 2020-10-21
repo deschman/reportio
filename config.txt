@@ -3,7 +3,7 @@ datawhse: DSN=datawhse;Trusted_Connection=yes;
 ozark1: DSN=ozark1;Trusted_Connection=yes;
 salefish: reserved for salefish, not implemented
 access: reserved for local Microsoft Access database, not implemented
-mysql: reserved for local mysql database, not implemented
+mysql: reserved for use at runtime
 
 [REPORT]
 self_dir: reserved for use at runtime
