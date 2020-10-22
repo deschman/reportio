@@ -4,8 +4,9 @@
 # TODO: find version dependancies for all of these
 # Let users know if they're missing any of our hard dependencies
 hard_dependencies = ('abc', 'sys', 'os', 'logging', 'threading',
-                     'configparser', 'datetime', 'tempfile', 'gc', 'pandas',
-                     'pyodbc', 'dask', 'sqlite3', 'openpyxl', 'tqdm')
+                     'configparser', 'datetime', 'tempfile', 'gc', 'pyodbc',
+                     'pandas', 'pyarrow', 'fastparquet', 'dask', 'sqlite3',
+                     'openpyxl', 'tqdm')
 missing_dependencies = []
 
 for dependency in hard_dependencies:
@@ -38,4 +39,4 @@ Limitations:
      - User must be prepared to interact with data sources using SQL
      - User must deliver reports outside the scope of this module
 """
-__version__ = '0.1a1'
+__version__ = '0.1a2'

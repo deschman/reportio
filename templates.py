@@ -501,7 +501,8 @@ class SimpleReport(ReportTemplate):
 
         Returns
         -------
-        lstFiles: list, files found in backup"""
+        lstFiles : list
+            Files found in backup."""
         super()._attemptResume(self._restoreMetadata)
 
     def __init__(self,
@@ -517,19 +518,38 @@ class SimpleReport(ReportTemplate):
 
         Parameters
         ----------
-        strName: string, name of report
-        dirLog: directory, file where script will log processes, will create
-            new log file if directory does not exist, default None
-        dirConfig: directory, config file, default is template config file.
-        dfMetadata: optional, can be added later using 'addQuery' method,
-            DataFrame object, from pandas module, columns:
-            (strName: string, name for dataset, cannot use '__', for file path
-             strSQL: string, SQL statement, formatted for desired database
-             strDbType: {'ozark1', 'datawhse', 'sailfish', 'access', 'mysql'}
-             objCnxn: pyodbc connection object, default None
-             dirDb: string, database location, must be provided if strDbType is
-             'access' or 'mysql', default None)"""
+        strName : string
+            Name of report.
+        dirLog : directory, default None
+            File where script will log processes. Will create new log file if
+            directory does not exist.
+        dirConfig : directory, default is template config file
+            Location of config file.
+        dfMetadata : DataFrame, optional
+            Can be added later using 'addQuery' method.
+            Columns:
+            (strName : string
+                Name for dataset. Cannot use '__', for file path.
+            strSQ : string
+                SQL statement as a string. Should be formatted for desired
+                database.
+            strDbType : string, default None
+                {'ozark1', 'datawhse', 'sailfish', 'access', 'mysql'}
+                Either strDbType or objCnxn must be provided to connect to
+                database.
+            objCnxn : pyodbc connection, default None
+                If not provided, report will attempt to connect using string in
+                config vile. Either strDbType or objCnxn must be provided to
+                connect to database.
+            dirDb : string, database location, default None
+                 Must only be provided if strDbType is 'access' or 'mysql)"""
         def _defineVars(dfMetadata=dfMetadata):
+            """For internal use. Helper function to adapt ReportTemplate.
+
+            Parameters
+            ----------
+            dfMetadata : DataFrame, supplied by script
+                Contains queries to be run during report."""
             # Base variables
             self.strMetadataFile = "Metadata.xlsx"
             self.dfMetadata = dfMetadata
@@ -537,6 +557,8 @@ class SimpleReport(ReportTemplate):
 
             # Class specific functions
             def _backupMetadata():
+                """For internal use. Helper function to adapt backupData
+                method to account for metadata file."""
                 dirFile = os_path_join(self.dirBackup,
                                        "__" + self.strMetadataFile)
                 self.log("Backing up metadata to '{0}'".format(dirFile),
@@ -545,12 +567,16 @@ class SimpleReport(ReportTemplate):
             self._backupMetadata = _backupMetadata
 
             def _delExcelFiles(dirFile):
+                """For internal use. Helper function to adapt _delDataBackup
+                method to account for metadata file."""
                 if dirFile.split('.')[-1] == 'xlsx':
                     self.log("Removing '{0}'".format(dirFile))
                     os_remove(dirFile)
             self._delExcelFiles = _delExcelFiles
 
             def _restoreMetadata():
+                """For internal use. Helper function to adapt _attemptResume
+                method to account for metadata file."""
                 dirFile = os_path_join(self.dirBackup, self.strMetadataFile)
                 if os_path_isfile(dirFile):
                     self.log("Restoring metadata from '{0}'".format(dirFile))
@@ -568,39 +594,52 @@ class SimpleReport(ReportTemplate):
             self._restoreMetadata = _restoreMetadata
         super().__init__(strName, dirLog, dirConfig, _defineVars)
 
-    def exportData(self, objFile, dirReport, strSheet='', lstDirs=[]):
+    def exportData(self, objFile, strReport, strSheet='', lstDirs=[]):
         """Export report data to report file. Will change file type to CSV as
         needed.
 
         Parameters
         ----------
-        objFile: file object, parquet file, report data for output
-        dirReport: directory, location of result file, should not include file
-            extension
-        strSheet: string, name of excel sheet, will append to file name if data
-            too large for Excel, default None
-        lstDirs: list, all directories used
+        objFile : file object
+            Must be parquet file. Contains report data for export.
+        strReport : string
+            Name of result file. File extension will be overwritten.
+        strSheet: string, default None
+            Name of excel sheet. Will append to file name if data is too large
+            for Excel.
+        lstDirs: list, optional
+            All directories already used for export
 
         Returns
         -------
         Directories: list, final directory used for export appended to lstDirs
             key word arg"""
-        lstDirs.append(super().exportData(objFile, dirReport, strSheet))
+        lstDirs.append(super().exportData(objFile, strReport, strSheet))
         return lstDirs
 
     # @_decLog
-    def addQuery(self, strName, strSQL, strDbType, objCnxn=None, dirDb=''):
+    def addQuery(self, strName, strSQL, strDbType=None,
+                 objCnxn=None, dirDb=''):
         """Add query to list to be run upon execution. Alternative to setting
         dfMetadata upon initializing. Will reset .lstQueries after addition.
 
         Parameters
         ----------
-        strName: string, name for dataset, cannot use '__', for file path
-        strSQL: string, SQL statement, formatted for desired database
-        strDbType: {'ozark1', 'datawhse', 'sailfish', 'access', 'mysql'}
-        objCnxn: pyodbc connection object, default None
-        dirDb: string, database location, must be provided if strDbType is
-            'access' or 'mysql', default None"""
+        strName : string
+            Name for dataset. Cannot use '__', for file path.
+        strSQ : string
+            SQL statement as a string. Should be formatted for desired database
+        strDbType : string, default None
+            {}
+            Either strDbType or objCnxn must be provided to connect to
+            database.
+        objCnxn : pyodbc connection, default None
+            If not provided, report will attempt to connect using string in
+            config vile. Either strDbType or objCnxn must be provided to
+            connect to database.
+        dirDb : string, default None
+             Database location. Must only be provided if strDbType is
+             'access'""".format([s for s in self.objCfg['ODBC']])
         if strName not in self.lstQueries:
             self.log("""Adding row to metadata with:
                          strName: {0}
@@ -625,7 +664,8 @@ class SimpleReport(ReportTemplate):
 
         Parameters
         ----------
-        strName: string, name for dataset of dataset query"""
+        strName : string
+            Name of query."""
         self.log("Removing query '{0}' from list".format(strName))
         self.dfMetadata = self.dfMetadata.drop(
             self.dfMetadata.loc[self.dfMetadata['strName'] == strName].index)
@@ -637,7 +677,8 @@ class SimpleReport(ReportTemplate):
 
         Parameters
         ----------
-        strName: string, name of report"""
+        strName: string
+            Name of report"""
         self.log("Renaming report to '{0}'".format(strName))
         self.strName = strName
         self.objCfg['REPORT']['report_name'] = strName
@@ -659,15 +700,28 @@ class SimpleReport(ReportTemplate):
 
         Parameters
         ----------
-        bolMulti: boolean, will utilize multithreading if True, single thread
-            useful for debug, default True
+        bolMulti : boolean, default True
+            Will utilize multithreading if True. Single thread is useful for
+            debug.
 
         Returns
         -------
-        Directories: list, all unique directories where report was exported"""
+        Directories : list
+            All unique directories where report was exported."""
 
         # Define single thread function
-        def singleThread(lstDirs=[]):
+        def _singleThread(lstDirs=[]):
+            """For internal use. Single thread section of run method.
+
+            Parameters
+            ----------
+            lstDirs : list, optional
+                Runs all queries in report. Utilizes single thread.
+
+            Returns
+            -------
+            Directories : list
+                All unique directories where report was exported."""
             # Loop metadata dataframe
             for _, row in tqdm(self.dfMetadata.iterrows()):
                 # Get data
@@ -684,7 +738,18 @@ class SimpleReport(ReportTemplate):
             return list(set(lstDirs))
 
         # Define multiple thread function
-        def multiThread(lstDirs=[]):
+        def _multiThread(lstDirs=[]):
+            """For internal use. Multithread section of run method.
+
+            Parameters
+            ----------
+            lstDirs : list, optional
+                Runs all queries in report. Utilizes single thread.
+
+            Returns
+            -------
+            Directories : list
+                All unique directories where report was exported."""
             # Loop metadata dataframe
             for _, row in self.dfMetadata.iterrows():
                 # Schedule data retrieval
@@ -713,10 +778,10 @@ class SimpleReport(ReportTemplate):
             if len(self.dfMetadata.index) > 0:
                 if bolMulti:
                     self.log("Running with multithreading")
-                    lstDirs = multiThread()
+                    lstDirs = _multiThread()
                 else:
                     self.log("Running on single thread")
-                    lstDirs = singleThread()
+                    lstDirs = _singleThread()
                 # Rearrange sheets to match query order if needed
                 if self._objWriter is not None:
                     dctOrder = dict((ws.title, ws) for ws in
@@ -736,7 +801,7 @@ class SimpleReport(ReportTemplate):
         except Exception as err:
             self.log(err, 'DEBUG')
             self.log("See log for debug details", 'CRITICAL')
-            self._backupData()
+            self.backupData()
             self.log("Backup successful")
             input("PRESS ANY KEY TO QUIT")
             self.log("QUITTING")
