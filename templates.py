@@ -12,6 +12,7 @@ from os.path import isfile as os_path_isfile  # file validation
 from os.path import isdir as os_path_isdir  # directory validation
 import logging  # process logging
 import threading  # thread identification
+from multiprocessing import cpu_count as mp_cpu_count  # for thread count
 import configparser as cfg  # working with config file
 from datetime import date as dt_date  # check backup files
 from datetime import datetime as dt_dt  # timestamping
@@ -24,7 +25,8 @@ from openpyxl import load_workbook  # writing to multiple tabs
 from tqdm import tqdm  # progress bar
 from reporting.errors import LogError, ConfigError, ReportNameError,\
     ODBCConnectionError, UnexpectedDbType, DatasetNameError, EmptyReport
-from reporting.decorators import decLog as _decLog
+# TODO: implement _decLog
+# from reporting.decorators import decLog as _decLog
 from reporting.future.progress import ProgressBar
 
 # Default variables
@@ -40,17 +42,19 @@ class ReportTemplate(ABC):
 
         Parameters
         ----------
-        strMsg: string, message to log
-        strLevel: string,
-            {'DEBUG' only prints to log file;
-            'INFO' prints to log file and console;
-            'WARNING' prints to log file and console, may cause ERROR or
-            CRITICAL issue;
-            'ERROR' prints to log file and console, script attempts to handle;
-            'CRITICAL' prints to log file and console, requires user input to
-            close, script/config edits are needed to fix},
-            default 'INFO'"""
-        # Prevents spam by redirecting log level when multithreading to debug
+        strMsg : string
+            Message to be logged.
+        strLevel: {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'},
+            default 'INFO'
+            'DEBUG' : Only prints to log file.
+            'INFO' : Prints to log file and console.
+            'WARNING :' Prints to log file and console. May cause ERROR or
+                CRITICAL issue.
+            'ERROR :' Prints to log file and console. Script attempts to
+                handle.
+            'CRITICAL' : Prints to log file and console. Requires user input to
+                close. Script/config edits are needed to fix."""
+        # Prevents spam by redirecting log level to debug when multithreading
         if threading.current_thread() is not threading.main_thread():
             strLevel = "DEBUG"
         if strLevel == 'DEBUG':
@@ -76,8 +80,9 @@ class ReportTemplate(ABC):
 
         Parameters
         ----------
-        funOptional: function, will be run after files are copied but before
-            this function is completed, default None"""
+        funOptional : function, optional
+            Will be run after files are copied but before this function is
+            completed."""
         self.log("Backing up data", 'WARNING')
         self.log("Backup location: {0}".format(self.dirBackup), 'DEBUG')
         # Copy parquet files
@@ -104,19 +109,43 @@ class ReportTemplate(ABC):
             objFile.write(self.startDate)
 
     # @_decLog
-    def _attemptResume(self, funOptional=None):
+    def _delDataBackup(self, funOptional=None):
+        """For internal use. Deletes all gz files in backup directory.
+
+        Parameters
+        ----------
+        funOptional : function, optional
+            Will be run for each file in backup dir with file directory as a
+            parameter."""
+        # Loop files in backup directory
+        self.log("Cleaning up")
+        for dirFile in [os_path_join(self.dirBackup, s) for s in
+                        os_listdir(self.dirBackup)]:
+            # Run optional function if included
+            if callable(funOptional):
+                funOptional(dirFile)
+            if dirFile.split('.')[-1] in ['gz', 'txt']:
+                self.log("Removing '{0}'".format(dirFile), 'DEBUG')
+                os_remove(dirFile)
+
+    # @_decLog
+    def _attemptResume(self, funOptional1=None, funOptional2=None):
         """For internal use. Checks backup folder for files that have been
         backed up today after a CRITICAL failure. Attempts to read files and
         resume report near the point of failure.
 
         Parameters
         ----------
-        funOptional: function, will be run if data backup is found, default
-            None
+        funOptional1 : function, optional
+            Will be run if data backup is found.
+        funOptional2 : function, optional
+            Will be run if data backup is not from today as funOptional
+            parameter in self._delDataBackup.
 
         Returns
         -------
-        lstFiles: list, files found in backup"""
+        lstFiles : list
+            Files found in backup."""
         self.log("Checking for backup files", 'DEBUG')
         lstFiles = []
         # Look for date stamp file
@@ -134,49 +163,34 @@ class ReportTemplate(ABC):
                 self.log("These files will be read from backup: {0}"
                          .format(lstFiles), 'DEBUG')
                 # Run optional function if included
-                if callable(funOptional):
-                    funOptional()
+                if callable(funOptional1):
+                    funOptional1()
             else:
                 self.log("No recent backup files found", 'DEBUG')
+                if callable(funOptional2):
+                    self._delDataBackup(funOptional2)
+                else:
+                    self._delDataBackup()
         else:
             self.log("No backup found", 'DEBUG')
         return lstFiles
 
-    # @_decLog
-    def _delDataBackup(self, funOptional=None):
-        """For internal use. Deletes all gz files in backup directory.
-
-        Parameters
-        ----------
-        funOptional: function, will be run for each file in backup dir with
-        file directory as a parameter, default None"""
-        # Loop files in backup directory
-        self.log("Cleaning up")
-        for dirFile in [os_path_join(self.dirBackup, s) for s in
-                        os_listdir(self.dirBackup)]:
-            # Run optional function if included
-            if callable(funOptional):
-                funOptional(dirFile)
-            if dirFile.split('.')[-1] in ['gz', 'txt']:
-                self.log("Removing '{0}'".format(dirFile), 'DEBUG')
-                os_remove(dirFile)
-
-    def __init__(self,
-                 strName,
-                 dirLog=default_log_dir,
-                 dirConfig=default_config_dir,
-                 funOptional=None):
+    def __init__(self, strName, dirLog=default_log_dir,
+                 dirConfig=default_config_dir, funOptional=None):
         """Abstract template class for building custom reports. The 'run'
         method is not implemented.
 
         Parameters
         ----------
-        strName: string, name of report
-        dirLog: directory, file where script will log processes, will create
-            new log file if directory does not exist, default is in user folder
-        dirConfig: directory, config file, default is template config file
-        funOptional: function, will run just before attempting resume, default
-            None"""
+        strName : string
+            Name of report.
+        dirLog : directory, default is in user folder
+            File where script will log processes. Will create new log file if
+            directory does not exist.
+        dirConfig:  directory, default is template config file
+            Location of config file.
+        funOptional : function, optional
+            Will run just before attempting resume."""
         # Assign base variables
         self.strName = strName
         self.dirCfg = dirConfig
@@ -256,9 +270,11 @@ class ReportTemplate(ABC):
 
         Parameters
         ----------
-        strDb: string, database name for logging messages
-        strCnxn: string, must be formatted for database
-        dctConnected: list, default creates new empty list
+        strDb : string
+            Database name.
+        strCnxn : string
+            Connection string. Must be formatted for database.
+        dctConnected : dictionary, optional
 
         Returns
         -------
@@ -301,16 +317,18 @@ class ReportTemplate(ABC):
 
     # @_decLog
     def _getWriter(self, dirReport):
-        """For internal use.
+        """For internal use. Creates ExcelWriter object to allow multiple tabs
+        to be written.
 
         Parameters
         ----------
-        dirReport: directory, location of result report
+        dirReport : directory
+            Location of result report.
 
         Returns
         -------
-        Writer: object, Excel writer from pandas module utilizing openpyxl
-        as engine"""
+        ExcelWriter : object
+            From pandas module utilizing openpyxl as engine."""
         # Creates blank Excel file if needed
         if not os_path_isfile(dirReport):
             pd.DataFrame().to_excel(dirReport)
@@ -330,15 +348,17 @@ class ReportTemplate(ABC):
 
         Parameters
         ----------
-        strName: string, name appended to end of temporary file
-        dfData: DataFrame, data to be written to temporary file
-        dirFolder: directory, folder where file is stored, will default to
-            config location if None, default None
+        strName : string
+            Name appended to end of temporary file.
+        dfData : DataFrame
+            Data to be written to temporary file.
+        dirFolder : directory, default is location in config
+            Folder where file is stored.
 
         Returns
         -------
-        File: object, from tempfile module, contains data from dataframe
-            parameter"""
+        File : tempfile
+            Contains data from dfData. From tempfile module."""
         if dirFolder is None:
             dirFolder = self.dirTempFolder
         try:
@@ -351,30 +371,41 @@ class ReportTemplate(ABC):
         self._lstFiles.append(objFile)
         return objFile
 
+    # TODO: creat a 'data' object for reporting module to reduce ambiguity
     # @_decLog
-    def getData(self, strTempFile, strSQL, strDbType, objCnxn=None, dirDb=''):
+    def getData(self, strName, strSQL, strDbType=None, objCnxn=None, dirDb=''):
         """Retrieve data from database via odbc. Will prompt user for login as
         needed.
 
         Parameters
         ----------
-        strTempFile: string, name for dataset, cannot use '__' for file path,
-            leave as empty string to return dataframe instead of temporary file
-        strSQL: string, SQL statement, formatted for desired database
-        strDbType: {'ozark1', 'datawhse', 'sailfish', 'access', 'mysql'}
-        objCnxn: pyodbc connection object, default None
-        dirDb: string, database location, must be provided if strDbType is
-            'access', default None
+        strName : string
+            Name for dataset. Cannot use '__', for file path.
+        strSQL : string
+            SQL statement as a string. Should be formatted for desired database
+        strDbType : {{0}}, optional
+            Either strDbType or objCnxn must be provided to connect to
+            database.
+        objCnxn : connection, optional
+            If not provided, report will attempt to connect using string in
+            config vile. Either strDbType or objCnxn must be provided to
+            connect to database. From pyodbc module.
+        dirDb : string, optional
+             Database location. Must only be provided if strDbType is
+             'access'.
 
         Returns
         -------
-        Data: object, contains data from query
-        Connection: object, from pyodbc module, database connection"""
+        Data : {file, DataFrame}
+            Contains data from query.
+        Connection : object
+            fDatabase connection. From pyodbc module.""".format(
+            [s for s in self.objCfg['ODBC']])
         # Check config file for connection string
         if strDbType not in self.objCfg['ODBC']:
             self.log("Config location: {0}".format(self.dirCfg), 'DEBUG')
             raise UnexpectedDbType(self.log, strDbType)
-        dirBackupFile = os_path_join(self.dirBackup, strTempFile + '.gz')
+        dirBackupFile = os_path_join(self.dirBackup, strName + '.gz')
         if not os_path_isfile(dirBackupFile):
             # Create new connection if needed
             if objCnxn is None:
@@ -385,39 +416,135 @@ class ReportTemplate(ABC):
         else:
             self.log("Reading backup file")
             dfTemp = pd.read_parquet(dirBackupFile)
-        if strTempFile != '':
-            objData = self.getTempFile(strTempFile, dfTemp)
+        if strName != '':
+            objData = self.getTempFile(strName, dfTemp)
         else:
             objData = dfTemp
         return objData, objCnxn
 
     # @_decLog
-    def mergeFiles(self, strTempFile, objFile1, objFile2, strMergeCol,
+    def crossQuery(self, dfInput, lstColumns, funSQL, strDbType=None,
+                   objCnxn=None, dirDb='', varZero=pd.NA):
+        """For experimental use. Append lstColumns to dfInput from data from
+        another query. Wil dynamically build queries based on values in each
+        row of dfInput and execute while utilizing dask for multithread
+        scheduling.
+
+        Parameters
+        ----------
+        dfInput : DataFrame
+            DataFrame to be appended with data from queries.
+        lstColumns : list
+            Name of new columns to be added.
+        funSQL : function
+            Should have input for row of data from DataFrame.iterrows() and
+            return query as string.
+        strDbType : {{0}}, optional
+            Either strDbType or objCnxn must be provided to connect to
+            database.
+        objCnxn : pyodbc connection, optional
+            If not provided, report will attempt to connect using string in
+            config vile. Either strDbType or objCnxn must be provided to
+            connect to database.
+        dirDb : string, optional
+             Database location. Must only be provided if strDbType is
+             'access'.
+        varZero : user-defined type, optional
+            Value to be used if query returns no results. The default is
+            pandas.NA.
+
+        Returns
+        -------
+        dfOutput : DataFrame
+            dfInput with data populated in lstColumns from funSQL.""".format(
+            [s for s in self.objCfg['ODBC']])
+        def proc_chunk(dfInput, lstChunk, lstColumns=lstColumns):
+            # Initialize chunk dataframe
+            dfChunk = pd.DataFrame(columns=['INDEX'] + lstColumns)
+            # Loop chunk list
+            for index, row in lstChunk:
+                # Check for partial population
+                if not any([pd.isna(dfInput.at[index, c])
+                            for c in lstColumns]):
+                    dfChunk.append(
+                        pd.DataFrame([[index] + list(dfInput.loc[index])],
+                                     columns=dfChunk.columns))
+                else:
+                    dfQuery, objCnxn = self.getData('', funSQL(row),
+                                                    strDbType, objCnxn)
+                    try:
+                        dfChunk.append(
+                            pd.DataFrame([[index] + list(dfQuery.iat[0, 0])],
+                                         columns=dfChunk.columns))
+                    # Handle 0 rows (no data found)
+                    except IndexError:
+                        dfChunk.append(
+                            pd.DataFrame(
+                                [[index] + [varZero] * len(lstColumns)],
+                                columns=dfChunk.columns))
+            return dfChunk
+        # Add new columns if needed
+        for c in lstColumns:
+            if c not in dfInput.columns:
+                dfInput[c] = pd.NA
+        # Initialize chunk list, dataframe list
+        lstChunk = []
+        lstDfs = []
+        # Loop dataframe
+        for index_row in dfInput.iterrows():
+            lstChunk.append(index_row)
+            # Process in chunks equal to number of threads available
+            if len(lstChunk) >= len(dfInput.index) / mp_cpu_count():
+                lstDfs.append(dd(proc_chunk)(dfInput, lstChunk))
+            lstChunk = []
+        # Attempt connection before spamming with all threads
+        self._getConnection(strDbType, self.objCfg['ODBC'][strDbType])
+        with ProgressBar():
+            dd(len)(lstDfs).compute()
+        # Initialize output dataframe
+        dfOutput = dfInput.copy()
+        for c in lstColumns:
+            dfOutput.drop(c)
+        for df in lstDfs:
+            dfOutput.merge(df, how='left', left_index=True, right_on='INDEX'
+                           ).drop('INDEX')
+        return dfOutput
+
+    # @_decLog
+    def mergeFiles(self, strName, objFile1, objFile2, strMergeCol,
                    strHow='inner', lstCols1=None, lstCols2=None,
                    lstColsFin=None):
         """Merges two parquet files into one
 
         Parameters
         ----------
-        strTempFile : string, output file name
-        objFile1: object, file containing data from pandas
-        objFile2: object, file containing data from pandas
-        strMergeCol: string, column used for merge
-        strHow: string, merge type
-        lstCols1: list, columns merged from first file, default all columns
-        lstCols2: list, columns merged from second file, default all columns
-        lstColsFin: list, columns listed in result file
+        strName : string
+            Output file name.
+        objFile1 : file
+            Contains data from pandas.
+        objFile2 : file
+            Contains data from pandas.
+        strMergeCol : string
+            Column used for merge.
+        strHow : {'left', 'right', 'outer', 'inner'}, default 'inner'
+            Merge type.
+        lstCols1 : list, default all columns
+            Columns merged from first file.
+        lstCols2 : list, default all columns
+            Columns merged from second file.
+        lstColsFin : list, default all columns
+            Columns listed in result file.
 
         Returns
         -------
         objData : object, merged file"""
         # Check for backup file
-        dirBackupFile = os_path_join(self.dirBackup, strTempFile + '.gz')
+        dirBackupFile = os_path_join(self.dirBackup, strName + '.gz')
         if os_path_isfile(dirBackupFile):
             self.log("Reading backup file")
             dfTemp = pd.read_parquet(dirBackupFile)
-            if strTempFile != '':
-                objData = self.getTempFile(strTempFile, dfTemp)
+            if strName != '':
+                objData = self.getTempFile(strName, dfTemp)
         else:
             self.log("Merging files")
             df = pd.read_parquet(objFile1, columns=lstCols1)
@@ -427,7 +554,7 @@ class ReportTemplate(ABC):
             if lstColsFin is not None:
                 df = df[lstColsFin]
             df = df.drop_duplicates(ignore_index=True)
-            objData = self.getTempFile(strTempFile, df)
+            objData = self.getTempFile(strName, df)
         return objData
 
     # @_decLog
@@ -437,15 +564,20 @@ class ReportTemplate(ABC):
 
         Parameters
         ----------
-        objFile: file object, parquet file, report data for output
-        dirReport: directory, location of result file, should not include file
-            extension
-        strSheet: string, name of excel sheet, will append to file name if data
-            too large for Excel, default None
+        objFile : file
+            Parquet file. Report data for output.
+        dirReport : directory
+            Location of result file. File extension will be overwritten
+        strSheet : string, optional
+            Name of excel sheet. Will append to file name if data too large for
+            Excel.
+        objXlWriter : ExcelWriter, optional
+            For use if writing multiple tabs. From pandas module.
 
         Returns
         -------
-        Directory: directory, final directory used for export"""
+        Directory : directory
+            Final directory used for export."""
         # Check file format
         if len(dirReport.split('.')) > 1:
             self.log("File extension will be overwritten",
@@ -503,13 +635,10 @@ class SimpleReport(ReportTemplate):
         -------
         lstFiles : list
             Files found in backup."""
-        super()._attemptResume(self._restoreMetadata)
+        super()._attemptResume(self._restoreMetadata, self._delExcelFiles)
 
-    def __init__(self,
-                 strName,
-                 dirLog=default_log_dir,
-                 dirConfig=default_config_dir,
-                 dfMetadata=pd.DataFrame(
+    def __init__(self, strName, dirLog=default_log_dir,
+                 dirConfig=default_config_dir, dfMetadata=pd.DataFrame(
                      columns=['strName', 'strSQL', 'strDbType', 'objCnxn',
                               'dirDb'])):
         """Will connect, query, and export data for each row in dfMetadata.
@@ -520,7 +649,7 @@ class SimpleReport(ReportTemplate):
         ----------
         strName : string
             Name of report.
-        dirLog : directory, default None
+        dirLog : directory, default is in user folder
             File where script will log processes. Will create new log file if
             directory does not exist.
         dirConfig : directory, default is template config file
@@ -530,19 +659,19 @@ class SimpleReport(ReportTemplate):
             Columns:
             (strName : string
                 Name for dataset. Cannot use '__', for file path.
-            strSQ : string
+            strSQL : string
                 SQL statement as a string. Should be formatted for desired
                 database.
-            strDbType : string, default None
-                {'ozark1', 'datawhse', 'sailfish', 'access', 'mysql'}
+            strDbType : {{0}}, optional
                 Either strDbType or objCnxn must be provided to connect to
                 database.
-            objCnxn : pyodbc connection, default None
+            objCnxn : pyodbc connection, optional
                 If not provided, report will attempt to connect using string in
                 config vile. Either strDbType or objCnxn must be provided to
                 connect to database.
-            dirDb : string, database location, default None
-                 Must only be provided if strDbType is 'access' or 'mysql)"""
+            dirDb : string, database location,optional
+                 Must only be provided if strDbType is 'access' or 'mysql)
+                 """.format([s for s in self.objCfg['ODBC']])
         def _defineVars(dfMetadata=dfMetadata):
             """For internal use. Helper function to adapt ReportTemplate.
 
@@ -604,7 +733,7 @@ class SimpleReport(ReportTemplate):
             Must be parquet file. Contains report data for export.
         strReport : string
             Name of result file. File extension will be overwritten.
-        strSheet: string, default None
+        strSheet: string, optional
             Name of excel sheet. Will append to file name if data is too large
             for Excel.
         lstDirs: list, optional
@@ -627,19 +756,18 @@ class SimpleReport(ReportTemplate):
         ----------
         strName : string
             Name for dataset. Cannot use '__', for file path.
-        strSQ : string
+        strSQL : string
             SQL statement as a string. Should be formatted for desired database
-        strDbType : string, default None
-            {}
+        strDbType : {{0}}, optional
             Either strDbType or objCnxn must be provided to connect to
             database.
-        objCnxn : pyodbc connection, default None
+        objCnxn : pyodbc connection, optional
             If not provided, report will attempt to connect using string in
             config vile. Either strDbType or objCnxn must be provided to
             connect to database.
-        dirDb : string, default None
+        dirDb : string, optional
              Database location. Must only be provided if strDbType is
-             'access'""".format([s for s in self.objCfg['ODBC']])
+             'access'.""".format([s for s in self.objCfg['ODBC']])
         if strName not in self.lstQueries:
             self.log("""Adding row to metadata with:
                          strName: {0}
@@ -647,11 +775,11 @@ class SimpleReport(ReportTemplate):
                          strDbType: {2}
                          objCnxn: {3}
                          dirDb: {4}""".format(strName, strSQL, strDbType,
-                                              objCnxn is None, dirDb), 'DEBUG')
+                                             objCnxn, dirDb), 'DEBUG')
             self.dfMetadata = self.dfMetadata.append(pd.DataFrame(
                 [[strName, strSQL, strDbType, objCnxn, dirDb]],
-                columns=['strName', 'strSQL', 'strDbType', 'objCnxn', 'dirDb']
-                ), ignore_index=True)
+                columns=['strName', 'strSQL', 'strDbType', 'objCnxn',
+                         'dirDb']), ignore_index=True)
             self.lstQueries = list(self.dfMetadata['strName'])
         else:
             self.log("Query with name '{0}' already exists. Query not added"

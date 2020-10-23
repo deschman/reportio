@@ -1,7 +1,9 @@
 [ODBC]
+datawhse: DSN=datawhse;Trusted_Connection=yes;
+ozark1: DSN=ozark1;Trusted_Connection=yes;
+salefish: reserved for salefish, not implemented
 access: reserved for local Microsoft Access database, not implemented
 mysql: reserved for use at runtime
-sql_server: reserved for Microsoft SQL server database, not implemented
 
 [REPORT]
 self_dir: reserved for use at runtime

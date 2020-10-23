@@ -2,11 +2,12 @@
 
 
 # TODO: find version dependancies for all of these
+# TODO: determine 'soft' dependancies
 # Let users know if they're missing any of our hard dependencies
 hard_dependencies = ('abc', 'sys', 'os', 'logging', 'threading',
-                     'configparser', 'datetime', 'tempfile', 'gc', 'pyodbc',
-                     'pandas', 'pyarrow', 'fastparquet', 'dask', 'sqlite3',
-                     'openpyxl', 'tqdm')
+                     'multiprocessing', 'configparser', 'datetime', 'tempfile',
+                     'gc', 'pyodbc', 'pandas', 'pyarrow', 'fastparquet',
+                     'dask', 'sqlite3', 'openpyxl', 'tqdm')
 missing_dependencies = []
 
 for dependency in hard_dependencies:
@@ -20,9 +21,11 @@ if missing_dependencies:
         "Unable to import required dependencies:\n" + "\n".join(
             missing_dependencies))
 
-from reporting.templates import *
-from reporting.errors import *
+from mymodules.reporting.templates import *
+from mymodules.reporting.errors import *
+from mymodules.reporting.future.progress import ProgressBar
 
+# TODO: implement email delivery for outlook (and gmail?)
 # module level doc-string
 __doc__ = """
 reporting - a package containing template classes for reporting with Python
@@ -39,4 +42,4 @@ Limitations:
      - User must be prepared to interact with data sources using SQL
      - User must deliver reports outside the scope of this module
 """
-__version__ = '0.1a2'
+__version__ = '0.2a0'
