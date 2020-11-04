@@ -4,7 +4,6 @@
 from dask.callbacks import Callback
 from tqdm.auto import tqdm
 
-# TODO: fill in progress bar example
 class ProgressBar(Callback):
     """Progress bar for utilization with dask. Will remove when implemented in
     tqdm in #278 (https://github.com/tqdm/tqdm/issues/278).
@@ -21,8 +20,9 @@ class ProgressBar(Callback):
 
     >>> with ProgressBar():
     ...     x.compute()
-    {progress bar example}
-    11"""
+    bar here
+    11
+    """
     def _start_state(self, dsk, state):
         self._tqdm = tqdm(total=sum(len(state[k]) for k in ['ready', 'waiting', 'running', 'finished']))
 

@@ -1,0 +1,15 @@
+[ODBC]
+datawhse: DSN=datawhse;Trusted_Connection=yes;
+ozark1: DSN=ozark1;Trusted_Connection=yes;
+salefish: reserved for salefish, not implemented
+access: reserved for local Microsoft Access database, not implemented
+mysql: reserved for use at runtime
+
+[REPORT]
+self_dir: reserved for use at runtime
+self_folder: reserved for use at runtime
+temp_files_folder: %(self_dir)s\_tempFiles
+backup_folder: %(self_dir)s\_backup
+report_name: reserved for use at runtime
+export_to: %(self_folder)s\%(report_name)s.xlsx
+import_from: reserved for use at runtime, not implemented
