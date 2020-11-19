@@ -44,37 +44,7 @@ class SimpleReport(ReportTemplate):
                  dfMetadata=pd.DataFrame(columns=['strName', 'strSQL',
                                                   'strDbType', 'objCnxn',
                                                   'dirDb'])):
-        """Will connect, query, and export data for each row in dfMetadata.
-        Metadata may be added using .addQuery after creation of the
-        SimpleReport object.
-
-        Parameters
-        ----------
-        strName : string
-            Name of report.
-        dirLog : directory, default is in user folder
-            File where script will log processes. Will create new log file if
-            directory does not exist.
-        dirConfig : directory, default is template config file
-            Location of config file.
-        dfMetadata : DataFrame, optional
-            Can be added later using 'addQuery' method.
-            Columns:
-            (strName : string
-                Name for dataset. Cannot use '__', for file path.
-            strSQL : string
-                SQL statement as a string. Should be formatted for desired
-                database.
-            strDbType : {{0}}, optional
-                Either strDbType or objCnxn must be provided to connect to
-                database.
-            objCnxn : pyodbc connection, optional
-                If not provided, report will attempt to connect using string in
-                config vile. Either strDbType or objCnxn must be provided to
-                connect to database.
-            dirDb : string, database location,optional
-                 Must only be provided if strDbType is 'access' or 'mysql)
-                 """.format([s for s in self.objCfg['ODBC']])
+        __doc__ = super().__doc__
         def _defineVars(dfMetadata=dfMetadata):
             """For internal use. Helper function to adapt ReportTemplate.
 
