@@ -1,3 +1,7 @@
-# Ignore all pycache files
+# pycache files
 __pycache__/
 *.pyc
+
+# Spyder project settings
+.spyderproject
+.spyproject
