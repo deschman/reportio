@@ -3,11 +3,12 @@
 
 # Let users know if they're missing any of our hard dependencies
 # TODO: find version dependancies for all of these
-# TODO: determine 'soft' dependancies
+# TODO: program 'soft' dependancies list (fastparquet, others?)
+# TODO: fix pytest_dbfixtures dependancy issue
 hard_dependencies = ('abc', 'sys', 'os', 'logging', 'threading',
                      'multiprocessing', 'configparser', 'datetime',
-                     'tempfile', 'gc', 'pytest', 'pytest_dbfixtures',
-                     'pyodbc', 'pandas', 'pyarrow', 'fastparquet', 'dask',
+                     'tempfile', 'gc', 'pytest',
+                     'pyodbc', 'pandas', 'pyarrow', 'dask',
                      'sqlite3', 'openpyxl', 'tqdm')
 missing_dependencies = []
 
