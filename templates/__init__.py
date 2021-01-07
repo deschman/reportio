@@ -242,10 +242,10 @@ class ReportTemplate(ABC):
         while strDb not in dctConnected.keys():
             try:
                 self.log("Connecting to {0}".format(strDb))
-                if strDb in ['ozark1', 'datawhse']:
-                    objCnxn = pyodbc.connect(strCnxn)
-                elif strDb == 'mysql':
+                if strDb == 'mysql':
                     objCnxn = sqlite3_connect(strCnxn)
+                else:
+                    objCnxn = pyodbc.connect(strCnxn)
                 dctConnected[strDb] = objCnxn
                 self.log("Connection successful", 'DEBUG')
             # If login fails, get user id/password and retry
