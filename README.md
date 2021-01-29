@@ -1,10 +1,10 @@
-# [reporting](https://github.com/deschman/reporting)
+# [reportio](https://github.com/deschman/reportio)
 
 ## Short Description
 A package containing templates for reporting with Python.
 
 ## Long Description
-**reporting** is a Python package providing template classes in an effort to
+**reportino** (rəˈpôrt ē ō) is a Python package providing template classes in an effort to
 speed up report building for BI Developers. It aims to provide users with an
 API for interacting with various data sources and end-user file types as well
 as a simple object for quickly building straight-forward reports.
@@ -32,7 +32,7 @@ objReport.run()
 
 '''
 ### Windows Authentication of SSMS Database
-Before utilizing **reporting** the user should first examine the **config** file.  Below 
+Before utilizing **reportio** the user should first examine the **config** file.  Below 
 *[DB]* the user should add their database details if they plan to use a saved connection.
 Additional parameters may be added after the initial semicolon  
 For example:
@@ -42,7 +42,7 @@ For example:
 Additionally, be sure to verify the filepaths below the *[REPORT]* header.
 
 Alternatively to using saved connections, the user may create their own connection at
-runtime. In this case, the header of your script should import **reporting** and your
+runtime. In this case, the header of your script should import **reportio** and your
 preferred connection module, and define your connection.
 
     import reporting as r
@@ -65,7 +65,7 @@ will be run with multithreading.  To use single threading pass *False* into the 
     rep.run(False)
 
 ##Logging
-**reporting** has robust logging functionality.  Refer to your config to find the filepaths
+**reportio** has robust logging functionality.  Refer to your config to find the filepaths
 for the output and logs.  The console will also display this information, as well as the 
 filepath to your report in an Excel file.  If you run multiple queries in one report, your
 workbook will have a tab for each query. 
