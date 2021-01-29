@@ -3,7 +3,7 @@
 
 import pytest
 
-from reporting.templates import ReportTemplate
+from reportio.templates import ReportTemplate
 
 
 def test_write_config(self):
