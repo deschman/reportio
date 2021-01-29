@@ -2,583 +2,766 @@
 """Base template class for report objects."""
 
 
-from abc import ABC, abstractmethod  # abstract (template) class
-from sys import argv as sys_argv  # path finding
-from os import listdir as os_listdir  # identify backup files
-from os import makedirs as os_makedirs  # directory creation
-from os import remove as os_remove  # delete backup files
-from os.path import dirname as os_path_dirname  # root finding
-from os.path import join as os_path_join  # path joinging
-from os.path import isfile as os_path_isfile  # file validation
-from os.path import isdir as os_path_isdir  # directory validation
-from multiprocessing import cpu_count as mp_cpu_count  # for thread count
-import configparser as cfg  # working with config file
-from datetime import date as dt_date  # check backup files
-from tempfile import NamedTemporaryFile  # send data to HDD to free up RAM
-from sqlite3 import connect as sqlite3_connect  # connect to mysql
+from abc import ABC, abstractmethod
+import sys
+import os
+import shutil
+import multiprocessing
+import configparser as cfg
+from datetime import date as dt_date
+from tempfile import NamedTemporaryFile
+import sqlite3
+from typing import List, Dict, Any, Tuple
 
-import pandas as pd  # assorted data wrangling and IO
-import pyodbc  # connect to system databases
-import dask.delayed as dd  # multithreading/scheduling
-from openpyxl import load_workbook  # writing to multiple tabs
+import pandas as pd
+import pyodbc
+from dask import delayed as dask_delayed
+import dask.distributed as dd
+from openpyxl import load_workbook
+# Pending tqdm.dask module release
+# from tqdm.dask import TqdmCallback as ProgressBar
 
-from ..logging import basicConfig as logging_basicConfig
-from ..logging import log as logging_log
-from ..errors import (ConfigError,
-                      ReportNameError,
-                      DBConnectionError,
-                      DatasetNameError,
-                      UnexpectedDbType)
-from ..future.progress import ProgressBar
-# TODO: implement decLog
-# from ..logging import decLog as decLog
+from reporting import logging as _logging
+from reporting.errors import (ConfigError,
+                              ReportNameError,
+                              DBConnectionError,
+                              DatasetNameError,
+                              UnexpectedDbType)
+from reporting.future.tqdm.dask import TqdmCallback as ProgressBar
+
+
+__all__ = ['write_config', 'ReportTemplate']
+
+
+default_self_location: str = os.path.dirname(__file__)
+default_config_location: str = os.path.join(
+    default_self_location, 'config.txt')
+default_log_location: str = os.path.join(
+    os.path.dirname(sys.argv[0]), 'log.txt')
+# TODO: find a way to initialize client here without causing:
+#     TypeError: can't pickle _asyncio.Task objects in data module
+client = dd.Client(processes=False)
+# client = None
+
+
+def write_config(config_location: str = default_config_location,
+                 report_name: str = 'reserved for use at runtime'):
+    """
+    Rewrites config file with current location and report name
+
+    Parameters
+    ----------
+    config_location : str, optional
+        DESCRIPTION. The default is default_config_location.
+    report_name : str, optional
+        DESCRIPTION. The default is 'reserved for use at runtime'.
+
+    Returns
+    -------
+    config : configparser.ConfigParser
+        Parsed config file.
+    self_location : str
+        Location of config file.
+    config_created : bool
+        True if new config file was created.
+    """
+    try:
+        # Read config file if present
+        config: cfg.ConfigParser = cfg.ConfigParser()
+        config._interpolation = cfg.ExtendedInterpolation()
+        config_created: bool = False
+        if not os.path.isfile(config_location):
+            config_created = True
+            global default_config_location
+            shutil.copy(default_config_location, config_location)
+        config.read(config_location)
+        # Write unpopulated variables
+        if sys.argv[0] == '':
+            global default_self_location
+            self_location = default_self_location
+        else:
+            self_location = os.path.dirname(sys.argv[0])
+        config['DEFAULT']['self_dir'] = default_self_location
+        config['DEFAULT']['self_folder'] = os.path.dirname(
+            default_self_location)
+        config['PATHS']['self_dir'] = self_location
+        config['PATHS']['self_folder'] = os.path.dirname(self_location)
+        config['REPORT']['report_name'] = report_name
+        with open(config_location, 'w') as file:
+            config.write(file)
+    except Exception:
+        raise ConfigError
+    return config, self_location, config_created
 
 
 class ReportTemplate(ABC):
 
-    # @decLog
-    def backupData(self, funOptional=None):
-        """Saves temporary files to backup folder in the event of CRICITAL
+    def __init__(self,
+                 report_name: str,
+                 log_location: str = default_log_location,
+                 config_location: str = default_config_location,
+                 connection_dictionary: Dict[str, object] = {},
+                 client: dd.Client = client,
+                 optional_function: callable = None,
+                 _default_config_location: str = default_config_location
+                 ) -> None:
+        """
+        Abstract template class for building custom reports. The 'run'
+        method is not implemented.
+
+        Parameters
+        ----------
+        report_name : string
+            Name of report.
+        log_location : directory, default is in user folder
+            File where script will log processes. Will create new log file if
+            directory does not exist.
+        config_location : directory, default is template config file
+            Location of config file. If location does not point to a file, a
+            copy of the default config will be created in this location.
+        connection_dictionary : dictionary, optional
+            Active connection objects for report to use if desired.
+        client : dask.distributed.Client
+            From dask.distributed module. Used to schedule multiprocessing.
+        optional_function : function, optional
+            Will run just before attempting resume.
+        """
+        # Assign base variables
+        self.report_name: str = report_name
+        self.log_location: str = log_location
+        self.config_location: str = config_location
+        self.connection_dictionary: Dict[str, object] = connection_dictionary
+        self.client: dd.Client = client
+        self.start_date: str = dt_date.today().isoformat()
+        self._sheets: int = 1
+        self._files: List[str] = []
+        # Prevent DB pooling, which causes errors
+        if pyodbc.pooling:
+            pyodbc.pooling = False
+        # Configure logger
+        new_log: str = _logging.config(_logging.getLogger(__name__),
+                                       self.log_location)
+        self.log: callable = _logging.log
+        # Check if report name can be used
+        try:
+            NamedTemporaryFile(suffix='__' + self.report_name).close()
+        except OSError:
+            raise ReportNameError(self.report_name)
+        # Write config
+        config_tuple: tuple = write_config(self.config_location,
+                                           self.report_name)
+        self.config: cfg.ConfigParser = config_tuple[0]
+        self.self_location: str = config_tuple[1]
+        config_created: bool = config_tuple[2]
+        del config_tuple
+        if config_created:
+            self.log("Creating config file at: '{0}'".format(config_location))
+        # Make backup dir if needed
+        self.backup_folder_location: str =\
+            self.config['REPORT']['backup_folder']
+        if not os.path.isdir(self.backup_folder_location):
+            self.log("Creating backup dir at '{0}'".format(
+                self.backup_folder_location), 'DEBUG')
+            os.makedirs(self.backup_folder_location)
+        # Make temporary files dir if needed
+        self.temp_files_location: str = \
+            self.config['REPORT']['temp_files_folder']
+        if not os.path.isdir(self.temp_files_location):
+            self.log("Creating temp dir at '{0}'".format(
+                self.temp_files_location))
+            os.makedirs(self.temp_files_location)
+        # Inform user
+        self.log("Starting report with {0} log located at '{1}'"
+                 .format(new_log, log_location))
+        self.log("Variables: dirSelf: '{0}', log_location: '{1}', " +
+                 "config_location: '{2}'".format(
+                     self.self_location, log_location, config_location),
+                 'DEBUG')
+        # Run optional function if callable
+        if callable(optional_function):
+            optional_function()
+        # Delete old report if it exists
+        report_location: str = self.config['REPORT']['export_to']
+        if os.path.exists(report_location):
+            self.log("Removing {0}".format(report_location))
+            os.remove(report_location)
+        else:
+            report_folder: str = os.path.dirname(report_location)
+            file_list: List[str] = [os.path.join(
+                report_folder, file_name) for file_name in os.listdir(
+                    report_folder) if os.path.isfile(
+                        os.path.join(report_folder, file_name))]
+            for file_name in file_list:
+                if report_location.split('.')[0] in file_name:
+                    self.log("Removing {0}".format(file_name))
+                    os.remove(file_name)
+        # Attempt resume
+        self.files: List[str] = self.attempt_resume()
+
+    def _delete_old_file(self, file_location: str) -> None:
+        if os.path.exists(file_location):
+            os.remove(file_location)
+
+    def backup_data(self, optional_function: callable = None) -> None:
+        """
+        Saves temporary files to backup folder in the event of CRICITAL
         failure. Backup files are utilized if script is run again the same day
         as the backup.
 
         Parameters
         ----------
-        funOptional : function, optional
+        optional_function : function, optional
             Will be run after files are copied but before this function is
-            completed."""
+            completed.
+        """
         self.log("Backing up data", 'WARNING')
-        self.log("Backup location: {0}".format(self.dirBackup), 'DEBUG')
+        self.log("Backup location: {0}".format(self.backup_folder_location),
+                 'DEBUG')
         # Copy parquet files
-        for objFile in self._lstFiles:
-            if hasattr(objFile, 'name'):
-                if objFile.name.split('.')[-1] == 'gz' and os_path_isfile(
-                        objFile.name):
+        for file in self._files:
+            if hasattr(file, 'name'):
+                if file.name.split('.')[-1] == 'gz' and os.path.isfile(
+                        file.name):
                     try:
-                        dirDst = os_path_join(self.dirBackup,
-                                              objFile.name.split('__')[-1])
+                        destination_location: str = os.path.join(
+                            self.backup_folder_location,
+                            file.name.split('__')[-1])
                         self.log("Backing up '{0}' to '{1}'".format(
-                            objFile.name, objFile.name), 'DEBUG')
-                        pd.read_parquet(objFile).to_parquet(dirDst,
-                                                            compression='gzip')
+                            file.name, file.name), 'DEBUG')
+                        pd.read_parquet(file).to_parquet(destination_location,
+                                                         compression='gzip')
                     # If one backup fails, try other files
                     except AttributeError:
                         continue
         # Run optional function if included
-        if callable(funOptional):
-            funOptional()
+        if callable(optional_function):
+            optional_function()
         # Write text file with start date
-        with open(os_path_join(self.dirBackup, 'startDate.txt'),
-                  'w') as objFile:
-            objFile.write(self.startDate)
+        with open(os.path.join(self.backup_folder_location, 'startDate.txt'),
+                  'w') as file:
+            file.write(self.start_date)
 
-    # @decLog
-    def _delDataBackup(self, funOptional=None):
-        """For internal use. Deletes all gz files in backup directory.
+    def delete_data_backup(self, optional_function: callable = None) -> None:
+        """
+        Deletes all gz files in backup directory.
 
         Parameters
         ----------
-        funOptional : function, optional
+        optional_function : function, optional
             Will be run for each file in backup dir with file directory as a
-            parameter."""
+            parameter.
+        """
         # Loop files in backup directory
         self.log("Cleaning up old data backup")
-        for dirFile in [os_path_join(self.dirBackup, s) for s in
-                        os_listdir(self.dirBackup)]:
+        for file_location in [os.path.join(self.backup_folder_location, s) for
+                              s in os.listdir(self.backup_folder_location)]:
             # Run optional function if included
-            if callable(funOptional):
-                funOptional(dirFile)
-            if dirFile.split('.')[-1] in ['gz', 'txt']:
-                self.log("Removing '{0}'".format(dirFile), 'DEBUG')
-                os_remove(dirFile)
+            if callable(optional_function):
+                optional_function(file_location)
+            if file_location.split('.')[-1] in ['gz', 'txt']:
+                self.log("Removing '{0}'".format(file_location), 'DEBUG')
+                os.remove(file_location)
 
-    # @decLog
-    def _attemptResume(self, funOptional1=None, funOptional2=None):
-        """For internal use. Checks backup folder for files that have been
-        backed up today after a CRITICAL failure. Attempts to read files and
-        resume report near the point of failure.
+    def attempt_resume(self,
+                       optional_function_1: callable = None,
+                       optional_function_2: callable = None) -> List[str]:
+        """
+        Checks backup folder for files that have been backed up today after a
+        CRITICAL failure. Attempts to read files and resume report near the
+        point of failure.
 
         Parameters
         ----------
-        funOptional1 : function, optional
+        optional_function_1 : function, optional
             Will be run if data backup is found.
-        funOptional2 : function, optional
-            Will be run if data backup is not from today as funOptional
-            parameter in self._delDataBackup.
+        optional_function_2 : function, optional
+            Will be run if data backup is not from today as optional_function
+            parameter in self.delete_data_backup.
 
         Returns
         -------
-        lstFiles : list
-            Files found in backup."""
+        file_list : list
+            Files found in backup.
+        """
         self.log("Checking for backup files", 'DEBUG')
-        lstFiles = []
+        file_list: List[str] = []
         # Look for date stamp file
-        strFile = 'startDate.txt'
-        if strFile in os_listdir(self.dirBackup):
-            with open(os_path_join(self.dirBackup, strFile), 'r') as objFile:
-                strStartDate = objFile.read()
+        file_name: str = 'startDate.txt'
+        if file_name in os.listdir(self.backup_folder_location):
+            with open(os.path.join(
+                    self.backup_folder_location, file_name), 'r') as objFile:
+                start_date: str = objFile.read()
             # Check if date stamp matches today
-            if strStartDate == dt_date.today().isoformat():
+            if start_date == dt_date.today().isoformat():
                 self.log("Resuming previous attempt")
                 # Gather names of files to read from backup
-                for strFile in [f for f in os_listdir(self.dirBackup)
-                                if f.split('.')[-1] == 'gz']:
-                    lstFiles.append(strFile)
-                self.log("These files will be read from backup: {0}"
-                         .format(lstFiles), 'DEBUG')
+                for file_name in [f for f in os.listdir(
+                        self.backup_folder_location
+                        ) if f.split('.')[-1] == 'gz']:
+                    file_list.append(file_name)
+                self.log("These files will be read from backup: {0}".format(
+                    file_list), 'DEBUG')
                 # Run optional function if included
-                if callable(funOptional1):
-                    funOptional1()
+                if callable(optional_function_1):
+                    optional_function_1()
             else:
                 self.log("No recent backup files found", 'DEBUG')
-                if callable(funOptional2):
-                    self._delDataBackup(funOptional2)
+                if callable(optional_function_2):
+                    self.delete_data_backup(optional_function_2)
                 else:
-                    self._delDataBackup()
+                    self.delete_data_backup()
         else:
             self.log("No backup found", 'DEBUG')
-        return lstFiles
+        return file_list
 
-    def __init__(self, strName, dirLog=os_path_join(os_path_dirname(
-            sys_argv[0]), 'log.txt'), dirConfig=os_path_join(os_path_dirname(
-                __file__), 'config.txt'), funOptional=None):
-        """Abstract template class for building custom reports. The 'run'
-        method is not implemented.
-
-        Parameters
-        ----------
-        strName : string
-            Name of report.
-        dirLog : directory, default is in user folder
-            File where script will log processes. Will create new log file if
-            directory does not exist.
-        dirConfig:  directory, default is template config file
-            Location of config file.
-        funOptional : function, optional
-            Will run just before attempting resume."""
-        # Assign base variables
-        self.strName = strName
-        self.dirCfg = dirConfig
-        self.dirLog = dirLog
-        self.startDate = dt_date.today().isoformat()
-        self._intSheets = 1
-        self._lstFiles = []
-        # Prevent odbc pooling, which causes errors
-        if pyodbc.pooling:
-            pyodbc.pooling = False
-        # Configure logger
-        strNewLog = logging_basicConfig(filename=self.dirLog)
-        self.log = logging_log
-        # Read config file if present
-        self.objCfg = cfg.ConfigParser()
-        if not os_path_isfile(self.dirCfg):
-            self.log("Config location: '{0}'".format(self.dirCfg))
-            raise ConfigError
-        self.objCfg.read(self.dirCfg)
-        self._dirTempFiles = self.objCfg['REPORT']['temp_files_folder']
-        # Check if report name can be used
-        try:
-            NamedTemporaryFile(suffix='__' + self.strName).close()
-        except OSError:
-            raise ReportNameError(self.strName)
-        # Write unpopulated variables
-        if sys_argv[0] == '':
-            self.selfDir = os_path_dirname(__file__)
-            self.objCfg['REPORT']['self_dir'] = self.selfDir
-            self.objCfg['REPORT']['self_folder'] = os_path_dirname(
-                self.selfDir)
-        else:
-            self.selfDir = os_path_dirname(sys_argv[0])
-            self.objCfg['REPORT']['self_dir'] = self.selfDir
-            self.objCfg['REPORT']['self_folder'] = os_path_dirname(
-                self.selfDir)
-        self.objCfg['REPORT']['report_name'] = self.strName
-        with open(self.dirCfg, 'w') as objFile:
-            self.objCfg.write(objFile)
-        # Make backup dir if needed
-        self.dirBackup = self.objCfg['REPORT']['backup_folder']
-        if not os_path_isdir(self.dirBackup):
-            self.log("Creating backup dir at '{0}'".format(self.dirBackup),
-                     'DEBUG')
-            os_makedirs(self.dirBackup)
-        # Make temporary files dir if needed
-        self.dirTempFolder = self.objCfg['REPORT']['temp_files_folder']
-        if not os_path_isdir(self.dirTempFolder):
-            self.log("Creating temp dir at '{0}'".format(
-                self.dirTempFolder))
-            os_makedirs(self.dirTempFolder)
-        # Inform user
-        self.log("Starting report with {0} log located at '{1}'"
-                 .format(strNewLog, dirLog))
-        self.log("Variables: selfDir: '{0}', dirLog: '{1}', dirConfig: '{2}'"
-                 .format(self.selfDir, dirLog, dirConfig), 'DEBUG')
-        # Run optional function if callable
-        if callable(funOptional):
-            funOptional()
-        # Attempt resume
-        self.lstFiles = self._attemptResume()
-
-    # @decLog
-    def _getConnection(self, strDb, strCnxn, dctConnected={}):
-        """For internal use. Creates pyodbc connection object using connection
+    def get_connection(self, database_name: str, connection_string: str
+                       ) -> object:
+        """
+        Creates pyodbc connection object using connection
         string from config file. Will prompt user for UID/PWD as needed.
 
         Parameters
         ----------
-        strDb : string
+        database_name : string
             Database name.
-        strCnxn : string
+        connection_string : string
             Connection string. Must be formatted for database.
-        dctConnected : dictionary, optional
 
         Returns
         -------
-        Connection: object, from pyodbc module
-        Connection Dictionary: dictionary, dctConnected parameter plus any new
-            connection created"""
+        connection_object : connection object
+        """
         # Initialize login iteration
         i = 0
         # Loop until connected
-        while strDb not in dctConnected.keys():
+        while database_name not in self.connection_dictionary.keys():
             try:
-                self.log("Connecting to {0}".format(strDb))
-                if strDb == 'mysql':
-                    objCnxn = sqlite3_connect(strCnxn)
+                self.log("Connecting to {0}".format(database_name))
+                if database_name == 'sqlite':
+                    connection_object = sqlite3.connect(
+                        connection_string, check_same_thread=False)
                 else:
-                    objCnxn = pyodbc.connect(strCnxn)
-                dctConnected[strDb] = objCnxn
+                    connection_object = pyodbc.connect(connection_string)
+                self.connection_dictionary[database_name] = connection_object
                 self.log("Connection successful", 'DEBUG')
             # If login fails, get user id/password and retry
             except pyodbc.Error as err:
                 i += 1
                 # Strip previous user entry if present
-                strCnxn = 'DSN' + strCnxn.split('DSN')[-1]
+                connection_string = 'DSN' + connection_string.split('DSN')[-1]
                 # Cap login attempts at 5
                 if i > 5:
-                    del strUID
-                    del strPWD
+                    del user_id
+                    del password
                     self.log(err, 'DEBUG')
                     self.log("Connection string (without UID/PWD): {0}"
-                             .format(strCnxn), 'DEBUG')
+                             .format(connection_string), 'DEBUG')
                     raise DBConnectionError
                 self.log("Unable to connect!", 'ERROR')
                 self.log("Attempting login with UID/PWD from user.", 'DEBUG')
-                strUID = input("Enter USERNAME: ")
-                strPWD = input("Enter PASSWORD: ")
-                strCnxn = 'UID=' + strUID + ';PWD=' + strPWD + ';' + strCnxn
-        objCnxn = dctConnected.get(strDb)
-        self.log("Using connection object '{0}'".format(objCnxn), 'DEBUG')
-        return objCnxn
+                user_id: str = input("Enter USERNAME: ")
+                password: str = input("Enter PASSWORD: ")
+                connection_string = 'UID=' + user_id +\
+                    ';PWD=' + password + ';' + connection_string
+        connection_object = self.connection_dictionary.get(database_name)
+        self.log("Using connection object '{0}'".format(connection_object),
+                 'DEBUG')
+        return connection_object
 
-    # @decLog
-    def _getWriter(self, dirReport):
-        """For internal use. Creates ExcelWriter object to allow multiple tabs
+    def get_writer(self, report_location: str) -> pd.ExcelWriter:
+        """
+        Creates ExcelWriter object to allow multiple tabs
         to be written.
 
         Parameters
         ----------
-        dirReport : directory
+        report_location : str
             Location of result report.
 
         Returns
         -------
-        ExcelWriter : object
-            From pandas module utilizing openpyxl as engine."""
+        excel_writer : pandas.ExcelWriter
+            From pandas module utilizing openpyxl as engine.
+        """
         # Creates blank Excel file if needed
-        if not os_path_isfile(dirReport):
-            pd.DataFrame().to_excel(dirReport)
+        if not os.path.isfile(report_location):
+            pd.DataFrame().to_excel(report_location)
         # Creates Excel Writer
-        objWriter = pd.ExcelWriter(dirReport, engine='openpyxl')
-        objWriter.book = load_workbook(dirReport)
-        objWriter.sheets = dict((ws.title, ws) for ws in
-                                objWriter.book.worksheets)
-        return objWriter
+        excel_writer: pd.ExcelWriter = pd.ExcelWriter(
+            report_location, engine='openpyxl', mode='a')
+        excel_writer.book = load_workbook(report_location)
+        excel_writer.sheets = dict((ws.title, ws) for ws in
+                                   excel_writer.book.worksheets)
+        return excel_writer
 
-    # @decLog
-    def getTempFile(self, strName, dfData, dirFolder=None):
-        """Creates tempfile object and writes dataframe to
+    def get_temp_file(self,
+                      file_name: str,
+                      data: pd.DataFrame,
+                      folder_location: str = None) -> object:
+        """
+        Creates tempfile object and writes dataframe to
         it. File will always use gzip compression and end in .gz. Raises
-        DatasetNameError if strName cannot be used in file. Overwriting may
+        DatasetNameError if file_name cannot be used in file. Overwriting may
         cause a critical error and data corruption.
 
         Parameters
         ----------
-        strName : string
+        file_name : string
             Name appended to end of temporary file.
-        dfData : DataFrame
+        data : DataFrame
             Data to be written to temporary file.
-        dirFolder : directory, default is location in config
+        folder_location : directory, default is location in config
             Folder where file is stored.
 
         Returns
         -------
-        File : tempfile
-            Contains data from dfData. From tempfile module."""
-        if dirFolder is None:
-            dirFolder = self.dirTempFolder
+        file : object
+            Contains data from data. From tempfile module.
+        """
+        if folder_location is None:
+            folder_location = self.temp_files_location
         try:
-            objFile = NamedTemporaryFile(dir=dirFolder,
-                                         suffix="__" + strName + '.gz')
+            file: object = NamedTemporaryFile(dir=folder_location,
+                                              suffix="__" + file_name + '.gz')
         except OSError as err:
             self.log(err, 'DEBUG')
-            raise DatasetNameError(strName)
-        dfData.to_parquet(objFile, compression='gzip')
-        self._lstFiles.append(objFile)
-        return objFile
+            raise DatasetNameError(file_name)
+        data.to_parquet(file, compression='gzip')
+        self._files.append(file)
+        return file
 
     # TODO: create a 'data' object for reporting module to reduce ambiguity
-    # @decLog
-    def getData(self, strName, strSQL, strDbType=None, objCnxn=None, dirDb='',
-                ):
-        """Retrieve data from database via odbc. Will prompt user for login as
+    def get_data(self,
+                 data_name: str,
+                 sql: str,
+                 db_type: str = '',
+                 connection_object: object = None,
+                 database_location: str = '') -> Tuple[object, object]:
+        """
+        Retrieve data from database via DB. Will prompt user for login as
         needed.
 
         Parameters
         ----------
-        strName : string
+        data_name : string
             Name for dataset. Cannot use '__', for file path.
-        strSQL : string
+        sql : string
             SQL statement as a string. Should be formatted for desired database
-        strDbType : {{0}}, optional
-            Either strDbType or objCnxn must be provided to connect to
+        db_type : {{0}}, optional
+            Either db_type or connection_object must be provided to connect to
             database.
-        objCnxn : connection, optional
+        connection_object : connection_object, optional
             If not provided, report will attempt to connect using string in
-            config vile. Either strDbType or objCnxn must be provided to
-            connect to database. From pyodbc module.
-        dirDb : string, optional
-             Database location. Must only be provided if strDbType is
+            config vile. Either db_type or connection_object must be provided
+            to connect to database. From pyodbc module.
+        database_location : string, optional
+             Database location. Must only be provided if db_type is
              'access'.
 
         Returns
         -------
-        Data : (file, DataFrame)
+        data : (file, pandas.DataFrame)
             Contains data from query.
-        Connection : object
-            fDatabase connection. From pyodbc module.""".format(
-            [s for s in self.objCfg['ODBC']])
-        # Check config file for connection string
-        if strDbType not in self.objCfg['ODBC']:
-            self.log("Config location: {0}".format(self.dirCfg), 'DEBUG')
-            raise UnexpectedDbType(strDbType)
-        dirBackupFile = os_path_join(self.dirBackup, strName + '.gz')
-        if not os_path_isfile(dirBackupFile):
-            # Create new connection if needed
-            if objCnxn is None:
-                objCnxn = self._getConnection(strDbType,
-                                              self.objCfg['ODBC'][strDbType])
+        connection_object : object
+            Database connection_object.
+        """.format([s for s in self.config['DB']])
+        # Check config file for connection_object string
+        if db_type not in self.config['DB']:
+            self.log("Config location: {0}".format(self.config_location),
+                     'DEBUG')
+            raise UnexpectedDbType(db_type)
+        backup_file_location: str = os.path.join(self.backup_folder_location,
+                                                 data_name + '.gz')
+        if not os.path.isfile(backup_file_location):
+            # Create new connection_object if needed
+            if connection_object is None:
+                connection_object = self.get_connection(
+                    db_type, self.config['DB'][db_type])
             self.log("Querying database")
-            dfTemp = pd.read_sql(strSQL, objCnxn)
+            temporary_dataframe: pd.DataFrame = pd.read_sql(
+                sql, connection_object)
         else:
             self.log("Reading backup file")
-            dfTemp = pd.read_parquet(dirBackupFile)
-        if len(dfTemp.index) == 0:
+            temporary_dataframe: pd.DataFrame = pd.read_parquet(
+                backup_file_location)
+        if len(temporary_dataframe.index) == 0:
             self.log("Query was empty", 'WARNING')
-        if strName != '':
-            objData = self.getTempFile(strName, dfTemp)
+        if data_name != '':
+            data: object = self.get_temp_file(data_name, temporary_dataframe)
         else:
-            objData = dfTemp
-        return objData, objCnxn
+            data: object = temporary_dataframe
+        return data, connection_object
 
-    # @decLog
-    def crossQuery(self, dfInput, lstColumns, funSQL, strDbType=None,
-                   objCnxn=None, dirDb='', varZero=pd.NA):
-        """For experimental use. Append lstColumns to dfInput from data from
-        another query. Wil dynamically build queries based on values in each
-        row of dfInput and execute while utilizing dask for multithread
-        scheduling.
+    def cross_query(self,
+                    dataframe_input: pd.DataFrame,
+                    column_list: List[str],
+                    sql_function: callable,
+                    db_type: str = '',
+                    connection_object: object = None,
+                    db_location: str = '',
+                    zero_value: Any = pd.NA,
+                    final_columns: List[str] = None,
+                    compress_columns: List[str] = None) -> object:
+        """
+        For experimental use. Append column_list to dataframe_input from data
+        from another query. Wil dynamically build queries based on values in
+        each row of dataframe_input and execute while utilizing dask for
+        multithread scheduling.
 
         Parameters
         ----------
-        dfInput : DataFrame
+        dataframe_input : pandas.DataFrame
             DataFrame to be appended with data from queries.
-        lstColumns : list
+        column_list : list
             Name of new columns to be added.
-        funSQL : function
+        sql_function : function
             Should have input for row of data from DataFrame.iterrows() and
             return query as string.
-        strDbType : {{0}}, optional
-            Either strDbType or objCnxn must be provided to connect to
+        db_type : {{0}}, optional
+            Either db_type or connection_object must be provided to connect to
             database.
-        objCnxn : pyodbc connection, optional
+        connection_object : object, optional
             If not provided, report will attempt to connect using string in
-            config vile. Either strDbType or objCnxn must be provided to
-            connect to database.
-        dirDb : string, optional
-             Database location. Must only be provided if strDbType is
+            config vile. Either db_type or connection_object must be provided
+            to connect to database.
+        db_location : str, optional
+             Database location. Must only be provided if db_type is
              'access'.
-        varZero : user-defined type, default is pandas.NA
+        zero_value : user-defined type, default is pandas.NA
             Value to be used if query returns no results.
+        final_columns : list, optional
+            Columns listed in result file.
+        compress_columns : list, optional
+            Column names to use as a temporary grouping. One query will be
+            run for each unique record in this column list. This is untested.
 
         Returns
         -------
-        dfOutput : DataFrame
-            dfInput with data populated in lstColumns from funSQL.""".format(
-            [s for s in self.objCfg['ODBC']])
-        def proc_chunk(dfInput, lstChunk, lstColumns=lstColumns,
-                       objCnxn=objCnxn):
+        dataframe_ouput : DataFrame
+            dataframe_input with data populated in column_list from
+            sql_function.
+        """.format([s for s in self.config['DB']])
+        def process_chunk(dataframe_input: pd.DataFrame,
+                          chunk_list: List[tuple],
+                          column_list: List[Any] = column_list,
+                          connection_object: object = connection_object,
+                          compress_columns: List[Any] = compress_columns
+                          ) -> pd.DataFrame:
             # Initialize chunk dataframe
-            dfChunk = pd.DataFrame(columns=lstColumns)
+            chunk: pd.DataFrame = pd.DataFrame(columns=column_list)
             # Loop chunk list
-            for index, row in lstChunk:
+            for index, row in chunk_list:
                 # Check for partial population
-                if not any([pd.isna(dfInput.at[index, c])
-                            for c in lstColumns]):
-                    dfChunk.append(
-                        pd.DataFrame([list(dfInput.loc[index])],
+                if not any([pd.isna(dataframe_input.at[index, c])
+                            for c in column_list]):
+                    chunk.append(
+                        pd.DataFrame([list(dataframe_input.loc[index])],
                                      index=[index],
-                                     columns=dfChunk.columns))
+                                     columns=chunk.columns))
                 else:
-                    dfQuery, objCnxn = self.getData('', funSQL(row),
-                                                    strDbType, objCnxn)
-                    try:
-                        dfChunk.append(
-                            pd.DataFrame([list(dfQuery.iat[0, 0])],
-                                         index=[index],
-                                         columns=dfChunk.columns))
-                    # Handle 0 rows (no data found)
-                    except IndexError:
-                        dfChunk.append(
+                    data_tuple: Tuple[pd.DataFrame, object] = \
+                        self.get_data(
+                            '', sql_function(row), db_type, connection_object)
+                    query_data: pd.DataFrame = data_tuple[0]
+                    connection_object: object = data_tuple[1]
+                    del data_tuple
+                    if len(query_data.index) > 0:
+                        for i in query_data.index:
+                            chunk = chunk.append(
+                                pd.DataFrame([list(query_data.loc[i])],
+                                             index=[index],
+                                             columns=chunk.columns))
+                    else:
+                        chunk.append(
                             pd.DataFrame(
-                                [[varZero] * len(lstColumns)],
+                                [[zero_value] * len(column_list)],
                                 index=[index],
-                                columns=dfChunk.columns))
-            return dfChunk
+                                columns=chunk.columns))
+            if compress_columns is not None:
+                # Initialize output DataFrame
+                ungrouped_data: pd.DataFrame = pd.DataFrame(
+                    columns=chunk.columns)
+                # Duplicate current index
+                chunk.reset_index()
+                # Loop over input
+                for _, r in chunk.iterrows():
+                    # Iterate over grouped data
+                    for i in range(len(r['index'])):
+                        ungrouped_data = ungrouped_data.append(
+                            pd.DataFrame([r[column_list]],
+                                         index=[r['index'][i]],
+                                         columns=column_list))
+                        for c in compress_columns:
+                            ungrouped_data.at[r['index'][i], c] = r[c][i]
+                chunk = ungrouped_data
+            return chunk
         # Add new columns if needed
-        if any([c not in l for l in dfInput.columns for c in lstColumns]):
-            for c in lstColumns:
-                if c not in dfInput.columns:
-                    dfInput[c] = pd.NA
+        if any([c not in l for l in dataframe_input.columns for c in
+                column_list]):
+            for c in column_list:
+                if c not in dataframe_input.columns:
+                    dataframe_input[c] = pd.NA
+        # Temporarily group data if needed (this may not work)
+        if compress_columns is not None:
+            dataframe_input = dataframe_input.groupby(
+                compress_columns, as_index=False).agg(list)
         # Initialize chunk list, dataframe list
-        lstChunk = []
-        lstDfs = []
+        chunk_list: List[tuple] = []
+        dataframe_list: List[pd.DataFrame] = []
         # Loop dataframe
-        for index_row in dfInput.iterrows():
-            lstChunk.append(index_row)
+        for index_row in dataframe_input.iterrows():
+            chunk_list.append(index_row)
             # Process in chunks equal to number of threads available
-            if len(lstChunk) >= len(dfInput.index) / mp_cpu_count():
-                lstDfs.append(dd(proc_chunk)(dfInput, lstChunk))
-            lstChunk = []
+            if len(chunk_list) >= len(
+                    dataframe_input.index) / multiprocessing.cpu_count():
+                dataframe_list.append(
+                    dask_delayed(process_chunk)(dataframe_input, chunk_list))
+                chunk_list = []
         # Attempt connection before spamming with all threads
-        self._getConnection(strDbType, self.objCfg['ODBC'][strDbType])
+        self.get_connection(db_type, self.config['DB'][db_type])
         with ProgressBar():
-            dd(len)(lstDfs).compute()
+            dask_delayed(len)(dataframe_list).compute()
         # Initialize output dataframe
-        dfOutput = dfInput.copy()
-        for df in lstDfs:
-            # Combine master df and chunk df, keeping value from latter
-            dfOutput.combine(df,
-                             lambda s1, s2: [v2 if not pd.isna(v2) else v1
-                                             for v2 in s2 for v1 in s1],
-                             overwrite=False)
-        return dfOutput
+        dataframe_ouput = dataframe_input.copy()
+        for df in dataframe_list:
+            # Combine master df and chunk df, keeping chunk where not null
+            dataframe_ouput.combine(df, lambda s1, s2: s1.combine(
+                s2, lambda v1, v2: v2 if not pd.isna(v2) else v1),
+                overwrite=False)
+        if final_columns is not None:
+            dataframe_ouput = dataframe_ouput.loc[:, final_columns]
+        return dataframe_ouput
 
-    # @decLog
-    def mergeFiles(self, strName, objFile1, objFile2, strMergeCol,
-                   strHow='inner', lstCols1=None, lstCols2=None,
-                   lstColsFin=None):
-        """Merges two parquet files into one
+    def merge_files(self,
+                    file_name: str,
+                    file_1: object,
+                    file_2: object,
+                    merge_column: str,
+                    join_type: str = 'inner',
+                    columns_1: List[str] = None,
+                    columns_2: List[str] = None,
+                    columns_final: List[str] = None) -> object:
+        """
+        Merges two parquet files into one.
 
         Parameters
         ----------
-        strName : string
+        file_name : string
             Output file name.
-        objFile1 : file
+        file_1 : file
             Contains data from pandas.
-        objFile2 : file
+        file_2 : file
             Contains data from pandas.
-        strMergeCol : string
+        merge_column : string
             Column used for merge.
-        strHow : {'left', 'right', 'outer', 'inner'}, default 'inner'
+        join_type : {'left', 'right', 'outer', 'inner'}, default 'inner'
             Merge type.
-        lstCols1 : list, default all columns
+        columns_1 : list, default all columns
             Columns merged from first file.
-        lstCols2 : list, default all columns
+        columns_2 : list, default all columns
             Columns merged from second file.
-        lstColsFin : list, default all columns
+        columns_final : list, default all columns
             Columns listed in result file.
 
         Returns
         -------
-        objData : object, merged file"""
+        data : object, merged file
+        """
         # Check for backup file
-        dirBackupFile = os_path_join(self.dirBackup, strName + '.gz')
-        if os_path_isfile(dirBackupFile):
+        backup_file_location: str = os.path.join(self.backup_folder_location,
+                                                 file_name + '.gz')
+        if os.path.isfile(backup_file_location):
             self.log("Reading backup file")
-            dfTemp = pd.read_parquet(dirBackupFile)
-            if strName != '':
-                objData = self.getTempFile(strName, dfTemp)
+            temporary_dataframe: pd.DataFrame = pd.read_parquet(
+                backup_file_location)
+            if file_name != '':
+                data: object = self.get_temp_file(file_name,
+                                                  temporary_dataframe)
         else:
             self.log("Merging files")
-            df = pd.read_parquet(objFile1, columns=lstCols1)
-            df2 = pd.read_parquet(objFile2, columns=lstCols2)
-            if strHow == 'right':
-                strSuffixR = None
-                strSuffixL = "_drop"
+            dataframe_1: pd.DataFrame = pd.read_parquet(file_1,
+                                                        columns=columns_1)
+            dataframe_2: pd.DataFrame = pd.read_parquet(file_2,
+                                                        columns=columns_2)
+            if join_type == 'right':
+                suffix_right: str = ''
+                suffix_left: str = "_drop"
             else:
-                strSuffixR = '_drop'
-                strSuffixL = None
-            df = df.merge(df2, strHow, strMergeCol,
-                          suffixes=(strSuffixL, strSuffixR))
-            del df2
-            df = df.drop([c for c in df if '_drop' in c], axis=1)
-            if lstColsFin is not None:
-                df = df[lstColsFin]
-            df = df.drop_duplicates(ignore_index=True)
-            objData = self.getTempFile(strName, df)
-        return objData
+                suffix_right: str = '_drop'
+                suffix_left: str = ''
+            dataframe_1 = dataframe_1.merge(
+                dataframe_2, join_type, merge_column, suffixes=(
+                    suffix_left, suffix_right))
+            del dataframe_2
+            dataframe_1 = dataframe_1.drop(
+                [c for c in dataframe_1 if '_drop' in c], axis=1)
+            if columns_final is not None:
+                dataframe_1 = dataframe_1[columns_final]
+            dataframe_1 = dataframe_1.drop_duplicates(ignore_index=True)
+            data: object = self.get_temp_file(file_name, dataframe_1)
+        return data
 
-    # @decLog
-    def exportData(self, objFile, dirReport, strSheet='', objXlWriter=None):
-        """Export report data to report file. Will change file type to CSV as
+    def export_data(self,
+                    file: object,
+                    report_location: str,
+                    sheet: str = '',
+                    excel_writer: pd.ExcelWriter = None) -> str:
+        """
+        Export report data to report file. Will change file type to CSV as
         needed.
 
         Parameters
         ----------
-        objFile : file
+        file : object
             Parquet file. Report data for output.
-        dirReport : directory
+        report_location : str
             Location of result file. File extension will be overwritten
-        strSheet : string, optional
+        sheet : str, optional
             Name of excel sheet. Will append to file name if data too large for
             Excel.
-        objXlWriter : ExcelWriter, optional
+        excel_writer : pd.ExcelWriter, optional
             For use if writing multiple tabs. From pandas module.
 
         Returns
         -------
-        Directory : directory
-            Final directory used for export."""
+        report_location : str
+            Final directory used for export.
+        """
         # Check file format
-        if len(dirReport.split('.')) > 1:
-            self.log("File extension will be overwritten",
-                     'WARNING')
-            self.log("Attempted report location: '{0}'".format(dirReport),
-                     'DEBUG')
-            dirReport = dirReport.split('.')[0]
+        if len(report_location.split('.')) > 1:
+            self.log("File extension will be overwritten", 'WARNING')
+            self.log(
+                "Attempted report location: '{0}'".format(report_location),
+                'DEBUG')
+            report_location = report_location.split('.')[0]
         # Read data file
-        dfData = pd.read_parquet(objFile)
+        data: pd.DataFrame = pd.read_parquet(file)
         # Check file size
-        if len(dfData.index) > 1048576 or len(dfData.columns) > 16384:
+        if len(data.index) > 1048576 or len(data.columns) > 16384:
             self.log("Exporting data to CSV")
-            dirReport = dirReport + "__" + strSheet + '.csv'
-            dfData.to_csv(dirReport, index=False)
+            report_location = report_location + "__" + sheet + '.csv'
+            data.to_csv(report_location, index=False)
         else:
             self.log("Exporting data to Excel")
             # Handle user variables
-            if strSheet == '':
-                strSheet = 'Sheet' + str(self._intSheets)
-            dirReport = dirReport + '.xlsx'
+            if sheet == '':
+                sheet = 'Sheet' + str(self._sheets)
+            report_location = report_location + '.xlsx'
             # Write to Excel
-            if objXlWriter is None:
-                self._objWriter = self._getWriter(dirReport)
+            if excel_writer is None:
+                self.excel_writer: pd.ExcelWriter = self.get_writer(
+                    report_location)
             else:
-                self._objWriter = objXlWriter
-            dfData.to_excel(self._objWriter, strSheet, index=False)
-            self._objWriter.save()
-        self._intSheets += 1
-        return dirReport
+                self.excel_writer: pd.ExcelWriter = excel_writer
+            data.to_excel(self.excel_writer, sheet, index=False)
+            self.excel_writer.save()
+            self.excel_writer.close()
+        self._sheets += 1
+        return report_location
 
     @abstractmethod
     def run(self):
         pass
+
+
+write_config()

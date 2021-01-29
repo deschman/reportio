@@ -3,47 +3,48 @@
 
 import pytest
 
-from ...templates import ReportTemplate
+from reporting.templates import ReportTemplate
+
+
+def test_write_config(self):
+    pass
 
 
 class test_ReportTemplate(ReportTemplate):
-    def test_backupData(self):
-        pass
-
-    def test__delDataBackup(self):
-        pass
-
-    def test__attemptResume(self):
-        pass
 
     def test___init__(self):
         pass
 
-    def test__getConnection(self):
+    def test_backup_data(self):
         pass
 
-    def test__getWriter(self):
+    def test_delete_data_backup(self):
         pass
 
-    def test_getTempFile(self):
+    def test_attempt_resume(self):
         pass
 
-    def test_getData(self):
+    def test_get_connection(self):
         pass
 
-    def test_crossQuery(self):
+    def test_get_writer(self):
+        pass
+
+    def test_get_temp_file(self):
+        pass
+
+    def test_get_data(self):
+        pass
+
+    def test_cross_query(self):
         def test_proc_query():
             pass
 
-        def test_combine_series_default_right():
-            pass
-
-    def test_mergeFiles(self):
+    def test_merge_files(self):
         pass
 
-    def test_exportData(self):
+    def test_export_data(self):
         pass
 
     def test_run(self):
         pass
-

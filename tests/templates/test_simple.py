@@ -7,26 +7,39 @@ from ...templates.simple import SimpleReport
 
 
 class test_SimpleReport(SimpleReport):
-    def test_backupData():
-        pass
-
-    def test__delDataBackup():
-        pass
-
-    def test__attemptResume():
-        pass
 
     def test___init__():
-        def test__defineVars():
-            pass
 
-    def test_exportData():
+        def test__define_optional_functions():
+
+            def test__backup_metadata():
+                pass
+
+            def test__delete_excel_files():
+                pass
+
+            def test__restore_metadata():
+                pass
+
+    def test__delete_data_backup():
         pass
 
-    def test_addQuery():
+    def test__attempt_resume():
         pass
 
-    def test_removeQuery():
+    def test__get_writer():
+        pass
+
+    def test_backup_data():
+        pass
+
+    def test_export_data():
+        pass
+
+    def test_add_query():
+        pass
+
+    def test_remove_query():
         pass
 
     def test_rename():
@@ -36,5 +49,6 @@ class test_SimpleReport(SimpleReport):
         pass
 
     def test_run():
-        def test__procQueries():
+
+        def test__process_queries():
             pass

@@ -1,16 +1,26 @@
 # -*- coding: utf-8 -*-
 
 
+from typing import Tuple, List
+
+
 # Let users know if they're missing any of our hard dependencies
-# TODO: find version dependancies for all of these
-# TODO: program 'soft' dependancies list (fastparquet, others?)
-# TODO: fix pytest_dbfixtures dependancy issue
-hard_dependencies = ('abc', 'sys', 'os', 'logging', 'threading',
-                     'multiprocessing', 'configparser', 'datetime',
-                     'tempfile', 'gc', 'pytest',
-                     'pyodbc', 'pandas', 'pyarrow', 'dask',
-                     'sqlite3', 'openpyxl', 'tqdm')
-missing_dependencies = []
+hard_dependencies: Tuple[str] = ('abc',
+                                 'sys',
+                                 'os',
+                                 'logging',
+                                 'threading',
+                                 'configparser',
+                                 'datetime',
+                                 'tempfile',
+                                 'gc',
+                                 'sqlite3',
+                                 'pytest',
+                                 'numba',
+                                 'pandas',
+                                 'pyarrow',
+                                 'openpyxl')
+missing_dependencies: List[str] = []
 
 for dependency in hard_dependencies:
     try:
@@ -23,10 +33,28 @@ if missing_dependencies:
         "Unable to import required dependencies:\n" + "\n".join(
             missing_dependencies))
 
-from .templates import ReportTemplate
-from .templates.simple import SimpleReport
-from .logging import *
-from .errors import *
-from .future.progress import ProgressBar
+# Pending tqdm.dask module release
+# from tqdm.tqdm.dask import TqdmCallback as ProgressBar
+
+from reporting.templates import ReportTemplate
+from reporting.data import Data
+from reporting.templates.simple import SimpleReport
+from reporting import logging
+from reporting.errors import *
+from reporting.future.tqdm.dask import TqdmCallback as ProgressBar
+
+__all__ = ['ProgressBar',
+           'ReportTemplate',
+           'Data',
+           'SimpleReport',
+           'logging',
+           'ReportError',
+           'LogError',
+           'ConfigError',
+           'ReportNameError',
+           'DBConnectionError',
+           'UnexpectedDbType',
+           'DatasetNameError',
+           'EmptyReport']
 
 # TODO: implement email delivery for outlook (and gmail?)

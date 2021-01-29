@@ -10,17 +10,40 @@ API for interacting with various data sources and end-user file types as well
 as a simple object for quickly building straight-forward reports.
 
 ## Examples
+### SimpleReport
+'''
+from reporting import SimpleReport
 
+
+\# Initialize report object
+objReport = SimpleReport("Yearly Sales")
+
+\# Add queries to report object
+objReport.addQuery("Category", "SELECT * FROM CATEGORY", 'sqlite')
+objReport.addQuery("Subcategory", "SELECT * FROM SUB_CATEGORY", 'sqlite')
+objReport.addQuery("Segment", "SELECT * FROM SEGMENT", 'sqlite')
+
+\# Process and export
+objReport.run()
+'''
+
+### ReportTemplate
+'''
+
+'''
 ### Windows Authentication of SSMS Database
 Before utilizing **reporting** the user should first examine the **config** file.  Below 
-*[ODBC]* the user should add their server details.  Additional parameters may be added after 
-the initial semicolon  For example:
+*[DB]* the user should add their database details if they plan to use a saved connection.
+Additional parameters may be added after the initial semicolon  
+For example:
 
-    myservername = servername;TrustedConnection=yes;
+    myservername = DSN=servername;TrustedConnection=yes;
 
 Additionally, be sure to verify the filepaths below the *[REPORT]* header.
 
-The header of your script should import **reporting** and **odbc**, and define your connection.
+Alternatively to using saved connections, the user may create their own connection at
+runtime. In this case, the header of your script should import **reporting** and your
+preferred connection module, and define your connection.
 
     import reporting as r
     import pyodbc
@@ -32,18 +55,16 @@ The header of your script should import **reporting** and **odbc**, and define y
                       
 You can create an instance of *SimpleReport* to get started.  You need to provide a string
 name for your report.  You can add, remove, and rename queries.  When adding queries, 
-you must provide a string name for the query, the SQL query as a string, the name of 
-your odbc configuration, and your odbc connection.  When you run the report, the queries
-will be run with multithreading.  To use single threading pass *False* into 
-the run method.
-
+you must provide a string name for the query, the SQL query as a string, and the name of 
+your saved connection or your created connection.  When you run the report, the queries
+will be run with multithreading.  To use single threading pass *False* into the run method.
 
     rep=r.SimpleReport("test")
-    rep.addQuery("testQuery","SELECT * FROM mydatabase.dbo.mytable","myservername",conn)
-    rep.addQuery("testQuery2","SELECT * FROM mydatabase.dbo.myothertable","myservername",conn)
+    rep.addQuery("testQuery", "SELECT * FROM mydatabase.dbo.mytable", connection=conn)
+    rep.addQuery("testQuery2", "SELECT * FROM mydatabase.dbo.myothertable", connection=conn)
     rep.run(False)
 
-
+##Logging
 **reporting** has robust logging functionality.  Refer to your config to find the filepaths
 for the output and logs.  The console will also display this information, as well as the 
 filepath to your report in an Excel file.  If you run multiple queries in one report, your

@@ -2,18 +2,17 @@
 
 
 from setuptools import setup, find_packages
-from os.path import dirname as os_path_dirname
-from os.path import join as os_path_join
+import os
 
 
-with open(os_path_join(os_path_dirname(__file__), 'README.md'),
+with open(os.path.join(os.path.dirname(__file__), 'README.md'),
           'r') as objFile:
-    strLongDesc = objFile.read()
-strShortDesc = strLongDesc.split('Short Description')[1].split('\n')[1]
+    long_desc: str = objFile.read()
+short_desc: str = long_desc.split('Short Description')[1].split('\n')[1]
 
 
 setup(name='reporting',
-      version='0.2.0a0',
+      version='0.3.0',
       author='Dan Eschman',
       author_email='deschman007@gmail.com',
       url='https://github.com/deschman/reporting',
@@ -24,14 +23,21 @@ setup(name='reporting',
           'Operating System :: Microsoft :: Windows',
           'Development Status :: 3 - Alpha',
           'License :: OSI Approved :: GNU General Public License v3 (GPLv3)'],
-      # TODO: idenfity version requirements
       python_requires='~=3.7',
-      install_requires=['abc', 'sys', 'os', 'logging', 'threading',
-                        'multiprocessing', 'configparser', 'datetime',
-                        'tempfile', 'gc', 'pytest', 'pytest_dbfixtures',
-                        'pyodbc', 'pandas', 'pyarrow', 'fastparquet', 'dask',
-                        'sqlite3', 'openpyxl', 'tqdm'],
-      description=strShortDesc,
-      long_description=strLongDesc,
+      # TODO: find version dependancies for all of these
+      # TODO: program 'soft' dependancies
+      install_requires=['abc', 'sys', 'os', 'logging', 'configparser',
+                        'datetime', 'tempfile', 'gc', 'pysqlite3', 'numba',
+                        'pytest-dbfixtures', 'pytest', 'pandas', 'pyarrow',
+                        'openpyxl'],
+      extras_require={'gzip_alt_processing': 'fastparquet',
+                      'odbc': 'pyodbc',
+                      'mysql_support': 'mysql-connector-python',
+                      'multithread_support_1': 'threading',
+                      'multithread_support_2': 'multiprocessing',
+                      'multithread_support_3': 'dask',
+                      'progress_bar': 'tqdm'},
+      description=short_desc,
+      long_description=long_desc,
       long_description_content_type='text/markdown',
       packages=find_packages())

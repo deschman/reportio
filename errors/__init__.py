@@ -7,55 +7,72 @@ __all__ = ['ReportError', 'LogError', 'ConfigError', 'ReportNameError',
 
 
 class ReportError(Exception):
-    def __init__(self, strMsg):
-        """Base exception class for reporting module. Will call log object if
+    def __init__(self, msg: str) -> None:
+        """
+        Base exception class for reporting module. Will call log object if
         it is a function, otherwise will print message and try to call
         .critical. Will always return message.
 
         Parameters
         ----------
-        strMsg : string
+        msg : string
             Error message.
-
-        Returns
-        -------
-        Message : string
-            Pass through from error call."""
-        self.message = strMsg
+        """
+        self.message = msg
 
 
 class LogError(ReportError):
-    def __init__(self):
-        """Error encountered while configuring log for report."""
-        strMsg = "unable to configure log"
-        self.message = strMsg
+    def __init__(self) -> None:
+        """
+        Error encountered while configuring log.
+        """
+        super().__init__("unable to configure log")
 
 
 class ConfigError(ReportError):
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        Error encountered while finding config file.
+        """
         super().__init__("config file not found")
 
 
 class ReportNameError(ReportError):
-    def __init__(self, strName):
-        super().__init__("cannot use '{0}' as report name".format(strName))
+    def __init__(self, report_name: str) -> None:
+        """
+        Error encountered with report name.
+        """
+        super().__init__("cannot use '{0}' as report name".format(report_name))
 
 
 class DBConnectionError(ReportError):
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        Error encountered while connecting to database.
+        """
         super().__init__("connection to database failed")
 
 
 class UnexpectedDbType(ReportError):
-    def __init__(self, strType):
+    def __init__(self, strType) -> None:
+        """
+        Error encountered attempting to find DB name in config.
+        """
         super().__init__("database type '{0}' not excpected".format(strType))
 
 
 class DatasetNameError(ReportError):
-    def __init__(self, strName):
-        super().__init__("cannot use '{0}' as dataset name")
+    def __init__(self, dataset_name: str) -> None:
+        """
+        Error encountered with dataset name.
+        """
+        super().__init__("cannot use '{0}' as dataset name".format(
+            dataset_name))
 
 
 class EmptyReport(ReportError):
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        Report is empty.
+        """
         super().__init__("report contains no data")
