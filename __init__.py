@@ -36,12 +36,12 @@ if missing_dependencies:
 # Pending tqdm.dask module release
 # from tqdm.tqdm.dask import TqdmCallback as ProgressBar
 
-from reporting.templates import ReportTemplate
-from reporting.data import Data
-from reporting.templates.simple import SimpleReport
-from reporting import logging
-from reporting.errors import *
-from reporting.future.tqdm.dask import TqdmCallback as ProgressBar
+from reportio.templates import ReportTemplate
+from reportio.data import Data
+from reportio.templates.simple import SimpleReport
+from reportio import logging
+from reportio.errors import *
+from reportio.future.tqdm.dask import TqdmCallback as ProgressBar
 
 __all__ = ['ProgressBar',
            'ReportTemplate',
