@@ -14,7 +14,7 @@ import pandas as pd
 import dask.distributed as dd
 from tqdm.tqdm.dask import TqdmCallback as ProgressBar
 
-from reporting.errors import DatasetNameError
+from reportio.errors import DatasetNameError
 
 
 __all__ = ['Data']
