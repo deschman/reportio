@@ -12,7 +12,7 @@ from logging import (DEBUG,
                      getLogger)  # explicit internal use
 import threading
 
-from ..errors import LogError
+from reporting.errors import LogError
 
 
 _Logger = getLogger(__name__)
