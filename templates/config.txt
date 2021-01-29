@@ -19,4 +19,3 @@ backup_folder = ${PATHS:self_dir}\_backup
 report_name = reserved for use at runtime
 export_to = ${PATHS:self_folder}\${report_name}.xlsx
 import_from = reserved for use at runtime, not implemented
-
