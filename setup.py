@@ -7,8 +7,8 @@ import os
 
 with open(os.path.join(os.path.dirname(__file__), 'README.md'),
           'r') as objFile:
-    strLongDesc: str = objFile.read()
-strShortDesc: str = strLongDesc.split('Short Description')[1].split('\n')[1]
+    long_desc: str = objFile.read()
+short_desc: str = long_desc.split('Short Description')[1].split('\n')[1]
 
 
 setup(name='reporting',
@@ -37,7 +37,7 @@ setup(name='reporting',
                       'multithread_support_2': 'multiprocessing',
                       'multithread_support_3': 'dask',
                       'progress_bar': 'tqdm'},
-      description=strShortDesc,
-      long_description=strLongDesc,
+      description=short_desc,
+      long_description=long_desc,
       long_description_content_type='text/markdown',
       packages=find_packages())
