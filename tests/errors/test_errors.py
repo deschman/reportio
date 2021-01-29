@@ -3,7 +3,7 @@
 
 import pytest
 
-from reporting import errors
+from reportio import errors
 
 
 class test_ReportError:
