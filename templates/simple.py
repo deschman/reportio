@@ -230,7 +230,7 @@ class SimpleReport(ReportTemplate):
                   query_name: str,
                   sql: str,
                   db_type: str = '',
-                  connection_object: object = None,
+                  connection: object = None,
                   db_location: str = '') -> None:
         """
         Add query to list to be run upon execution. Alternative to setting
@@ -243,11 +243,11 @@ class SimpleReport(ReportTemplate):
         sql : str
             SQL statement as a string. Should be formatted for desired database
         db_type : str, optional
-            Either db_type or connection_object must be provided to connect to
+            Either db_type or connection must be provided to connect to
             database.
-        connection_object : object, optional
+        connection : object, optional
             If not provided, report will attempt to connect using string in
-            config vile. Either db_type or connection_object must be provided
+            config vile. Either db_type or connection must be provided
             to connect to database.
         db_location : str, optional
              Database location. Must only be provided if db_type is 'sqlite'.
@@ -257,19 +257,19 @@ class SimpleReport(ReportTemplate):
                          query_name: {0}
                          sql: {1}
                          db_type: {2}
-                         connection_object: {3}
+                         connection: {3}
                          db_location: {4}""".format(query_name,
                                                     sql,
                                                     db_type,
-                                                    connection_object,
+                                                    connection,
                                                     db_location),
                      'DEBUG')
             self.metadata = self.metadata.append(pd.DataFrame(
-                [[query_name, sql, db_type, connection_object, db_location]],
+                [[query_name, sql, db_type, connection, db_location]],
                 columns=['query_name',
                          'sql',
                          'db_type',
-                         'connection_object',
+                         'connection',
                          'db_location']),
                 ignore_index=True)
             self.query_list = list(self.metadata['query_name'])
