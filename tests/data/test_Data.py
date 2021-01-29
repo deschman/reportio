@@ -9,7 +9,7 @@ import time
 import pandas as pd
 import dask.distributed as dd
 
-from reporting.data import Data
+from reportio.data import Data
 
 
 client = dd.Client(processes=False)
