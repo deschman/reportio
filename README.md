@@ -12,19 +12,19 @@ as a simple object for quickly building straight-forward reports.
 ## Examples
 ### SimpleReport
 '''
-from reporting import SimpleReport
+from reportio import SimpleReport
 
 
 \# Initialize report object
-objReport = SimpleReport("Yearly Sales")
+report = SimpleReport("Yearly Sales")
 
 \# Add queries to report object
-objReport.addQuery("Category", "SELECT * FROM CATEGORY", 'sqlite')
-objReport.addQuery("Subcategory", "SELECT * FROM SUB_CATEGORY", 'sqlite')
-objReport.addQuery("Segment", "SELECT * FROM SEGMENT", 'sqlite')
+report.add_query("Category", "SELECT * FROM CATEGORY", 'sqlite')
+report.add_query("Subcategory", "SELECT * FROM SUB_CATEGORY", 'sqlite')
+report.add_query("Segment", "SELECT * FROM SEGMENT", 'sqlite')
 
 \# Process and export
-objReport.run()
+report.run()
 '''
 
 ### ReportTemplate
@@ -45,7 +45,7 @@ Alternatively to using saved connections, the user may create their own connecti
 runtime. In this case, the header of your script should import **reportio** and your
 preferred connection module, and define your connection.
 
-    import reporting as r
+    import reportio as r
     import pyodbc
 
     conn = pyodbc.connect(driver='{SQL Server Native Client 11.0}',
@@ -60,8 +60,8 @@ your saved connection or your created connection.  When you run the report, the 
 will be run with multithreading.  To use single threading pass *False* into the run method.
 
     rep=r.SimpleReport("test")
-    rep.addQuery("testQuery", "SELECT * FROM mydatabase.dbo.mytable", connection=conn)
-    rep.addQuery("testQuery2", "SELECT * FROM mydatabase.dbo.myothertable", connection=conn)
+    rep.add_query("testQuery", "SELECT * FROM mydatabase.dbo.mytable", connection=conn)
+    rep.add_query("testQuery2", "SELECT * FROM mydatabase.dbo.myothertable", connection=conn)
     rep.run(False)
 
 ##Logging
