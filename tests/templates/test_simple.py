@@ -3,7 +3,7 @@
 
 import pytest
 
-from ...templates.simple import SimpleReport
+from reportio.templates.simple import SimpleReport
 
 
 class test_SimpleReport(SimpleReport):
