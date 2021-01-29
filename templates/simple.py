@@ -5,7 +5,7 @@ Simplified report object with less flexibility, allowing for quick development.
 Example:
 
 
-from reporting import SimpleReport
+from reportio import SimpleReport
 
 
 # Initialize report object
@@ -30,9 +30,9 @@ import dask
 # Pending tqdm.dask module release
 # from tqdm.tqdm.dask import TqdmCallback as ProgressBar
 
-from reporting.templates import ReportTemplate
-from reporting.errors import EmptyReport
-from reporting.future.tqdm.dask import TqdmCallback as ProgressBar
+from reportio.templates import ReportTemplate
+from reportio.errors import EmptyReport
+from reportio.future.tqdm.dask import TqdmCallback as ProgressBar
 
 
 __all__ = ['SimpleReport']
