@@ -21,13 +21,13 @@ from openpyxl import load_workbook
 # Pending tqdm.dask module release
 # from tqdm.dask import TqdmCallback as ProgressBar
 
-from reporting import logging as _logging
-from reporting.errors import (ConfigError,
+from reportio import logging as _logging
+from reportio.errors import (ConfigError,
                               ReportNameError,
                               DBConnectionError,
                               DatasetNameError,
                               UnexpectedDbType)
-from reporting.future.tqdm.dask import TqdmCallback as ProgressBar
+from reportio.future.tqdm.dask import TqdmCallback as ProgressBar
 
 
 __all__ = ['write_config', 'ReportTemplate']
