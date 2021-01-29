@@ -1,117 +1,97 @@
 # -*- coding: utf-8 -*-
+# TODO: consider refactoring - loggers should never be instantiated directly
 
 
-from os.path import isfile as os_path_isfile  # ensure log is file
-from datetime import datetime as dt_dt  # print current date/time
-from functools import wraps  # for decorator
-import logging  # process logging
-import threading  # check for multithreading
-from gc import collect as gc_collect  # attempt process force quit
+import os
+from logging import *  # full compatibility
+from logging import (DEBUG,
+                     INFO,
+                     Formatter,
+                     FileHandler,
+                     StreamHandler,
+                     getLogger)  # explicit internal use
+import threading
 
 from ..errors import LogError
 
 
-__all__ = ['basicConfig', 'getThreadScope', 'debug', 'info', 'warning',
-           'error', 'critical', 'log', 'decLog']
+_Logger = getLogger(__name__)
 
 
-def basicConfig(filename, filemode='a',
-                format='%(asctime)s %(threadName)s %(levelname)s: %(message)s',
-                **kwargs):
-    strNewLog = "existing"
-    try:
-        if not os_path_isfile(filename):
-            open(filename, 'w').close()
-            strNewLog = "new"
-        elif filemode == 'w':
-            strNewLog = 'new'
-        logging.basicConfig(filename=filename, filemode=filemode,
-                            format=format, level=logging.DEBUG)
-        # python 3.8 and later
-        # logging.basicConfig(filename=filename, filemode=filemode,
-        #                     format=format, level=logging.DEBUG, force=True)
-    except Exception as err:
-        print(err)
-        raise LogError
-    return strNewLog
+def config(
+        __Logger: Logger,
+        file_name: str,
+        file_mode: str = 'a',
+        format: str = '%(asctime)s %(threadName)s %(levelname)s: %(message)s'
+        ) -> str:
+    """
+    Initial logger configuration. Running multiple times may initialize
+    multiple loggers.
 
-
-def getThreadScope():
-    """Check if program is utilizing multithreading.
+    Parameters
+    ----------
+    __Logger : logging.Logger
+        Base Logger class object.
+    file_name : str
+        Name of file where log will print.
+    file_mode : str, optional
+        {'w': write, 'a': append}. The default is 'a'.
+    format : str, optional
+        Details that will print with every log message. The default is
+        '%(asctime)s %(threadName)s %(levelname)s: %(message)s'.
 
     Returns
     -------
-    bolMainThread : boolean
-        True if utilizing multi-threading, false if using single thread."""
-    bolMainThread = threading.current_thread() is not threading.main_thread()
-    return bolMainThread
+    new_log : str
+        Indicator of whether a new log was created or not.
+    """
+    new_log: str = "existing"
+    try:
+        __Logger.setLevel(DEBUG)
+        # Create file for file handler if needed
+        if file_mode == 'w':
+            os.remove(file_name)
+        if not os.path.isfile(file_name):
+            open(file_name, 'w').close()
+            new_log = "new"
+        # Add file handler
+        _Formatter: Formatter = Formatter(format)
+        _FileHandler: FileHandler = FileHandler(filename=file_name)
+        _FileHandler.setLevel(DEBUG)
+        _FileHandler.setFormatter(_Formatter)
+        __Logger.addHandler(_FileHandler)
+        # Add stream handler to print everything but debug messages to console
+        thread_format: str = '%(threadName)s'
+        if thread_format in format:
+            format.replace(thread_format, '')
+        _Formatter = Formatter(format.replace('%(threadName)s', ''))
+        _StreamHandler = StreamHandler()
+        _StreamHandler.setLevel(INFO)
+        _StreamHandler.setFormatter(_Formatter)
+        __Logger.addHandler(_StreamHandler)
+        # Set global logger object
+        global _Logger
+        _Logger = __Logger
+    except Exception:
+        raise LogError
+    return new_log
 
 
-def _printLog(strMsg, strLevel):
-    print(dt_dt.now(), '{0}:'.format(strLevel), strMsg)
+def get_thread_scope() -> None:
+    """
+    Check if program is utilizing multithreading.
+
+    Returns
+    -------
+    boolean
+        True if utilizing multi-threading, false if using single thread.
+    """
+    return threading.current_thread() is not threading.main_thread()
 
 
-def debug(strMsg):
-    """Simply calls logging.debug, passing strMsg. Added to module for full
-    compatability in place of logging standard library.
-
-    Parameters
-    ----------
-    strMsg : string
-        Message to be logged and printed."""
-    logging.debug(strMsg)
-
-
-def info(strMsg):
-    """Calls logging.info and prints message to console in the format of
-    YYYY-MM-DD HH:MM:SS.ssssss INFO: strMsg
-
-    Parameters
-    ----------
-    strMsg : string
-        Message to be logged and printed."""
-    logging.info(strMsg)
-    _printLog(strMsg, 'INFO')
-
-
-def warning(strMsg):
-    """Calls logging.warning and prints message to console in the format of
-    YYYY-MM-DD HH:MM:SS.ssssss WARNING: strMsg
-
-    Parameters
-    ----------
-    strMsg : string
-        Message to be logged and printed."""
-    logging.warning(strMsg)
-    _printLog(strMsg, 'WARNING')
-
-
-def error(strMsg):
-    """Calls logging.error and prints message to console in the format of
-    YYYY-MM-DD HH:MM:SS.ssssss ERROR: strMsg
-
-    Parameters
-    ----------
-    strMsg : string
-        Message to be logged and printed."""
-    logging.error(strMsg)
-    _printLog(strMsg, 'ERROR')
-
-
-def critical(strMsg):
-    """Calls logging.critical and prints message to console in the format of
-    YYYY-MM-DD HH:MM:SS.ssssss CRITICAL: strMsg
-
-    Parameters
-    ----------
-    strMsg : string
-        Message to be logged and printed."""
-    logging.critical(strMsg, exc_info=True)
-    _printLog(strMsg, 'CRITICAL')
-
-
-def log(strMsg, strLevel='INFO'):
-    """Log feedback log file and to console as needed.
+def _log(strMsg, strLevel='INFO') -> None:
+    """
+    Log feedback to log file and to console as needed.
 
     Parameters
     ----------
@@ -125,49 +105,23 @@ def log(strMsg, strLevel='INFO'):
             CRITICAL issue.
         'ERROR :' Prints to log file and console. Script attempts to
             handle.
-        'CRITICAL' : Prints to log file and console. Requires user input to
-            close. Script/config edits are needed to fix."""
+        'CRITICAL' : Prints to log file and console. Prints system error.
+        Script/config edits are needed to fix.
+    """
     # Prevents spam by redirecting log level to debug when multithreading
-    if getThreadScope():
+    if get_thread_scope():
         strLevel = "DEBUG"
     if strLevel == 'DEBUG':
-        debug(strMsg)
+        _Logger.debug(strMsg)
     elif strLevel == 'INFO':
-        info(strMsg)
+        _Logger.info(strMsg)
     elif strLevel == 'WARNING':
-        warning(strMsg)
+        _Logger.warning(strMsg)
     elif strLevel == 'ERROR':
-        error(strMsg)
+        _Logger.error(strMsg)
     elif strLevel == 'CRITICAL':
-        critical(strMsg)
+        _Logger.critical(strMsg, exc_info=True)
 
 
-# TODO: get this working as a decorator so that log file closes after use
-# This implementation does not work. See todo fix below.
-class decLog:
-    def __init__(self, objMethod):
-        if not callable(objMethod):
-            # TODO: create this custom error
-            raise Exception
-        self.objMethod = objMethod
-
-    def __get__(self, obj, type=None):
-        return self.__class__(self.objMethod.__get__(obj, type))
-
-    def __call__(self, *args, **kwargs):
-        # Attempt to retrieve log directory from method
-        try:
-            # TODO: fix this so it does not throw an attribute error
-            self.dirLog = self.objMethod.__self__.dirLog
-        except AttributeError:
-            # TODO: create this custom error
-            raise Exception
-        # Configure logger
-        import logging
-        basicConfig(filename=self.objMethod.__self__.dirLog,
-                    level=logging.DEBUG, *args, **kwargs)
-        result = self.objMethod(*args, **kwargs)
-        logging.shutdown()
-        del logging
-        gc_collect()
-        return result
+# Overwrite function
+log = _log

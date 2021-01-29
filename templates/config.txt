@@ -1,15 +1,22 @@
-[ODBC]
-datawhse: DSN=datawhse;Trusted_Connection=yes;
-ozark1: DSN=ozark1;Trusted_Connection=yes;
-salefish: reserved for salefish, not implemented
-access: reserved for local Microsoft Access database, not implemented
-mysql: reserved for use at runtime
+[DEFAULT]
+self_dir = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting\templates
+self_folder = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting
+
+[PATHS]
+self_dir = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting\templates
+self_folder = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting
+
+[DB]
+datawhse = DSN=datawhse;Trusted_Connection=yes;
+ozark1 = DSN=ozark1;Trusted_Connection=yes;
+sailfishprod = DSN=SailfishProd;Trusted_Connection=yes;
+sqlite = ${DEFAULT:self_folder}\sample.db
+access = reserved for use at runtime, not implemented
 
 [REPORT]
-self_dir: reserved for use at runtime
-self_folder: reserved for use at runtime
-temp_files_folder: %(self_dir)s\_tempFiles
-backup_folder: %(self_dir)s\_backup
-report_name: reserved for use at runtime
-export_to: %(self_folder)s\%(report_name)s.xlsx
-import_from: reserved for use at runtime, not implemented
+temp_files_folder = ${PATHS:self_dir}\_temp_files
+backup_folder = ${PATHS:self_dir}\_backup
+report_name = reserved for use at runtime
+export_to = ${PATHS:self_folder}\${report_name}.xlsx
+import_from = reserved for use at runtime, not implemented
+
