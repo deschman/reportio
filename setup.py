@@ -12,7 +12,7 @@ strShortDesc: str = strLongDesc.split('Short Description')[1].split('\n')[1]
 
 
 setup(name='reporting',
-      version='0.3.0dev0',
+      version='0.3.0',
       author='Dan Eschman',
       author_email='deschman007@gmail.com',
       url='https://github.com/deschman/reporting',
