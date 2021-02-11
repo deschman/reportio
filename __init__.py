@@ -1,14 +1,21 @@
 # -*- coding: utf-8 -*-
 
 
+import os
 from typing import Tuple, List
 
+
+with open(os.path.join(os.path.dirname(__file__), 'README.md'),
+          'r') as objFile:
+    long_desc: str = objFile.read()
+__doc__ = long_desc
 
 # Let users know if they're missing any of our hard dependencies
 hard_dependencies: Tuple[str] = ('abc',
                                  'sys',
                                  'os',
                                  'logging',
+                                 'getpass',
                                  'threading',
                                  'configparser',
                                  'datetime',
@@ -36,12 +43,12 @@ if missing_dependencies:
 # Pending tqdm.dask module release
 # from tqdm.tqdm.dask import TqdmCallback as ProgressBar
 
-from reporting.templates import ReportTemplate
-from reporting.data import Data
-from reporting.templates.simple import SimpleReport
-from reporting import logging
-from reporting.errors import *
-from reporting.future.tqdm.dask import TqdmCallback as ProgressBar
+from reportio.templates import ReportTemplate
+from reportio.data import Data
+from reportio.templates.simple import SimpleReport
+from reportio import logging
+from reportio.errors import *
+from reportio.future import ProgressBar
 
 __all__ = ['ProgressBar',
            'ReportTemplate',

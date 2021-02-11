@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Data object for use in template reports.
-"""
+"""Contains Data object for use in template reports."""
 
 
 import os
@@ -14,7 +12,7 @@ import pandas as pd
 import dask.distributed as dd
 from tqdm.tqdm.dask import TqdmCallback as ProgressBar
 
-from reporting.errors import DatasetNameError
+from reportio.errors import DatasetNameError
 
 
 __all__ = ['Data']
@@ -27,7 +25,9 @@ class _Data(object):
         pass
 
 
+# TODO: update docstring
 class Data(_Data):
+    """Data object for use in template reports."""
 
     def __init__(self,
                  dataset_name: str,
@@ -50,10 +50,7 @@ class Data(_Data):
         # self._get_temp_file()
 
     def _get_data(self) -> None:
-        """
-        Retrieve self.DataFrame from connected database using self.sql and
-        self.connection.
-        """
+        """Retrieve .DataFrame using .sql and .connection."""
         def _get_data_1(
                 backup_folder_location: str = self._backup_folder_location,
                 dataset_name: str = self._dataset_name,
@@ -83,10 +80,11 @@ class Data(_Data):
 
     def _get_temp_file(self) -> None:
         """
-        Creates self.File and writes self._DataFrame to it. File will always
-        use gzip compression and end in .gz. Overwriting may cause a critical
-        error and data corruption. Will wait for any previous file write to
-        complete.
+        Create .File and writes ._DataFrame to it.
+
+        File will always use gzip compression and end in .gz. Overwriting may
+        cause a critical error and data corruption. Wait for any previous file
+        write to complete.
         """
 
         def _get_temp_file_1(
@@ -115,13 +113,12 @@ class Data(_Data):
         self._File.add_done_callback(_get_temp_file_2)
         dd.fire_and_forget(self._File)
 
-
     @property
     def dataset_name(self) -> str:
         """
-        Name that will be used to name self.File, where self.DataFrame
-        will be written. Changing this attribute will result in the creation of
-        a new file.
+        Name of .File.
+
+        Changing this attribute will result in the creation of a new file.
         """
         return self._dataset_name
 
@@ -135,9 +132,10 @@ class Data(_Data):
     @property
     def sql(self) -> str:
         """
-        SQL string used to query data contained in self.DataFrame and
-        self.File. Changing this property will result in the query being re-run
-        and the creation of a new file.
+        Query used to get data contained in .DataFrame and .File.
+
+        Changing this property will result in the query being re-run and the
+        creation of a new file.
         """
         return self._sql
 
@@ -150,8 +148,9 @@ class Data(_Data):
     @property
     def connection(self) -> object:
         """
-        Connection object used to query data from connected database. Changing
-        this property will close the current connection immediately.
+        Object used to connect to database.
+
+        Changing will close the current connection immediately.
         """
         return self._connection
 
@@ -163,9 +162,7 @@ class Data(_Data):
 
     @property
     def DataFrame(self) -> pd.DataFrame:
-        """
-        DataFrame object holding data from query in memory
-        """
+        """Object holding data from query in memory."""
         return self._DataFrame
 
     @DataFrame.setter
@@ -175,7 +172,7 @@ class Data(_Data):
 
     @property
     def File(self) -> object:
-        
+        """Edit this."""
         return self._File
 
     def _cross_query(self,
@@ -186,10 +183,12 @@ class Data(_Data):
                      final_columns: List[str] = None,
                      compress_columns: List[str] = None) -> object:
         """
-        For experimental use. Append column_list to dataframe_input from data
-        from another query. Wil dynamically build queries based on values in
-        each row of dataframe_input and execute while utilizing dask for
-        multithread scheduling.
+        For experimental use.
+
+        Append column_list to dataframe_input from data from another query.
+        Wil dynamically build queries based on values in each row of
+        dataframe_input and execute while utilizing dask for multithread
+        scheduling.
 
         Parameters
         ----------
@@ -309,7 +308,7 @@ class Data(_Data):
                      columns_2: List[str] = None,
                      columns_final: List[str] = None) -> object:
         """
-        Merges two parquet files into one.
+        Merge two parquet files into one.
 
         Parameters
         ----------
@@ -376,4 +375,5 @@ class Data(_Data):
              join_type: str,
              join_columns: List[str],
              group_columns: List[str] = []) -> _Data:
+        """Edit this."""
         pass

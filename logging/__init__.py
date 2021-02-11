@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # TODO: consider refactoring - loggers should never be instantiated directly
+"""Contains all objects from logging standard module with minor tweaks."""
 
 
 import os
@@ -12,7 +13,7 @@ from logging import (DEBUG,
                      getLogger)  # explicit internal use
 import threading
 
-from reporting.errors import LogError
+from reportio.errors import LogError
 
 
 _Logger = getLogger(__name__)
@@ -25,8 +26,9 @@ def config(
         format: str = '%(asctime)s %(threadName)s %(levelname)s: %(message)s'
         ) -> str:
     """
-    Initial logger configuration. Running multiple times may initialize
-    multiple loggers.
+    Create initial logger configuration.
+
+    Running multiple times may initialize multiple loggers.
 
     Parameters
     ----------

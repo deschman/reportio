@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Base template class for report objects."""
+"""Contains base template class for report objects."""
 
 
 from abc import ABC, abstractmethod
 import sys
 import os
+from getpass import getpass
 import shutil
 import multiprocessing
 import configparser as cfg
@@ -15,21 +16,13 @@ from typing import List, Dict, Any, Tuple
 
 import pandas as pd
 import pyodbc
+import jaydebeapi as jdbc
 from dask import delayed as dask_delayed
 import dask.distributed as dd
 from openpyxl import load_workbook
 # Pending tqdm.dask module release
 # from tqdm.dask import TqdmCallback as ProgressBar
 
-<<<<<<< Updated upstream
-from reporting import logging as _logging
-from reporting.errors import (ConfigError,
-                              ReportNameError,
-                              DBConnectionError,
-                              DatasetNameError,
-                              UnexpectedDbType)
-from reporting.future.tqdm.dask import TqdmCallback as ProgressBar
-=======
 from reportio import logging as _logging
 from reportio.errors import (ConfigError,
                              ReportNameError,
@@ -37,7 +30,6 @@ from reportio.errors import (ConfigError,
                              DatasetNameError,
                              UnexpectedDbType)
 from reportio.future.tqdm.dask import TqdmCallback as ProgressBar
->>>>>>> Stashed changes
 
 
 __all__ = ['write_config', 'ReportTemplate']
@@ -57,7 +49,7 @@ client = dd.Client(processes=False)
 def write_config(config_location: str = default_config_location,
                  report_name: str = 'reserved for use at runtime'):
     """
-    Rewrites config file with current location and report name
+    Rewrites config file with current location and report name.
 
     Parameters
     ----------
@@ -105,6 +97,28 @@ def write_config(config_location: str = default_config_location,
 
 
 class ReportTemplate(ABC):
+    """
+    Abstract template class for building custom reports.
+
+    Developer must implement at least the 'run' method.
+
+    Parameters
+    ----------
+    report_name : string
+        Name of report.
+    log_location : directory, default is in user folder
+        File where script will log processes. Will create new log file if
+        directory does not exist.
+    config_location : directory, default is template config file
+        Location of config file. If location does not point to a file, a
+        copy of the default config will be created in this location.
+    connection_dictionary : dictionary, optional
+        Active connection objects for report to use if desired.
+    client : dask.distributed.Client
+        From dask.distributed module. Used to schedule multiprocessing.
+    optional_function : function, optional
+        Will run just before attempting resume.
+    """
 
     def __init__(self,
                  report_name: str,
@@ -115,27 +129,6 @@ class ReportTemplate(ABC):
                  optional_function: callable = None,
                  _default_config_location: str = default_config_location
                  ) -> None:
-        """
-        Abstract template class for building custom reports. The 'run'
-        method is not implemented.
-
-        Parameters
-        ----------
-        report_name : string
-            Name of report.
-        log_location : directory, default is in user folder
-            File where script will log processes. Will create new log file if
-            directory does not exist.
-        config_location : directory, default is template config file
-            Location of config file. If location does not point to a file, a
-            copy of the default config will be created in this location.
-        connection_dictionary : dictionary, optional
-            Active connection objects for report to use if desired.
-        client : dask.distributed.Client
-            From dask.distributed module. Used to schedule multiprocessing.
-        optional_function : function, optional
-            Will run just before attempting resume.
-        """
         # Assign base variables
         self.report_name: str = report_name
         self.log_location: str = log_location
@@ -183,8 +176,10 @@ class ReportTemplate(ABC):
         # Inform user
         self.log("Starting report with {0} log located at '{1}'"
                  .format(new_log, log_location))
-        self.log("Variables: dirSelf: '{0}', log_location: '{1}', " +
-                 "config_location: '{2}'".format(
+        self.log("""Variables:
+                     dirSelf: '{0}'
+                     log_location: '{1}'
+                     config_location: '{2}'""".format(
                      self.self_location, log_location, config_location),
                  'DEBUG')
         # Run optional function if callable
@@ -214,9 +209,10 @@ class ReportTemplate(ABC):
 
     def backup_data(self, optional_function: callable = None) -> None:
         """
-        Saves temporary files to backup folder in the event of CRICITAL
-        failure. Backup files are utilized if script is run again the same day
-        as the backup.
+        Save temporary files to backup folder in the event of CRICITAL error.
+
+        Backup files saved in this was are utilized if script is run again the
+        same day as the backup.
 
         Parameters
         ----------
@@ -253,7 +249,7 @@ class ReportTemplate(ABC):
 
     def delete_data_backup(self, optional_function: callable = None) -> None:
         """
-        Deletes all gz files in backup directory.
+        Delete all gz files in backup directory.
 
         Parameters
         ----------
@@ -276,9 +272,10 @@ class ReportTemplate(ABC):
                        optional_function_1: callable = None,
                        optional_function_2: callable = None) -> List[str]:
         """
-        Checks backup folder for files that have been backed up today after a
-        CRITICAL failure. Attempts to read files and resume report near the
-        point of failure.
+        Load files from backup folder.
+
+        Attempts to read files and resume report near the point of error. Only
+        loads files that have been backed up today after a CRITICAL error.
 
         Parameters
         ----------
@@ -324,11 +321,15 @@ class ReportTemplate(ABC):
             self.log("No backup found", 'DEBUG')
         return file_list
 
-    def get_connection(self, database_name: str, connection_string: str
-                       ) -> object:
+    def get_connection(self,
+                       database_name: str,
+                       connection_string: str,
+                       connection_type: str = 'odbc') -> object:
         """
-        Creates pyodbc connection object using connection
-        string from config file. Will prompt user for UID/PWD as needed.
+        Create connection object.
+
+        Will use appropriate connection library and string from config file
+        dependant upon conneciton type. Will prompt user for UID/PWD as needed.
 
         Parameters
         ----------
@@ -336,6 +337,8 @@ class ReportTemplate(ABC):
             Database name.
         connection_string : string
             Connection string. Must be formatted for database.
+        connection_type : ('odbc', 'jdbc', 'sqlite'), Optional
+            Specifies the connection type.
 
         Returns
         -------
@@ -378,10 +381,84 @@ class ReportTemplate(ABC):
                  'DEBUG')
         return connection_object
 
+    # TODO: test
+    def _get_connection(self,
+                        database: str,
+                        connection_type: str = 'sqlite') -> object:
+        """
+        Create connection object.
+
+        Will use appropriate connection library and string from config file
+        dependant upon conneciton type. Will prompt user for UID/PWD as needed.
+
+        Parameters
+        ----------
+        database_name : string
+            Database name as used in config file.
+        connection_type : ('odbc', 'jdbc', 'sqlite'), default 'sqlite'
+            Specifies the connection type.
+
+        Returns
+        -------
+        connection_object : connection object
+        """
+        # Initialize login iteration
+        i = 0
+        # Loop until connected
+        while database not in self.connection_dictionary.keys():
+            self.log("Connecting to {0}".format(database))
+            if connection_type == 'sqlite':
+                connection_string = \
+                    self.config[database]['db_location']
+                connection_object = sqlite3.connect(
+                    connection_string, check_same_thread=False)
+            elif connection_type == 'odbc':
+                connection_string = \
+                    self.config[database]['connection_string']
+                try:
+                    connection_object = pyodbc.connect(connection_string)
+                except pyodbc.Error as err:
+                    i += 1
+                    # Strip previous user entry if present
+                    connection_string = 'DSN' +\
+                        connection_string.split('DSN')[-1]
+                    # Cap login attempts at 5
+                    if i > 5:
+                        del user_id
+                        del password
+                        self.log(err, 'DEBUG')
+                        self.log("Connection string (without UID/PWD): {0}"
+                                 .format(connection_string), 'DEBUG')
+                        raise DBConnectionError
+                    self.log("Unable to connect!", 'ERROR')
+                    self.log(
+                        "Attempting login with UID/PWD from user.", 'DEBUG')
+                    user_id: str = input("Enter USERNAME: ")
+                    password: str = getpass("Enter PASSWORD: ")
+                    connection_string = 'UID=' + user_id +\
+                        ';PWD=' + password + ';' + connection_string
+            elif connection_type == 'jdbc':
+                if self.config[database]['password'] == '':
+                    _password: str = getpass("Enter PASSWORD: ")
+                else:
+                    _password: str = self.config[database]['password']
+                connection_object = jdbc.connect(
+                    self.config[database]['class_name'],
+                    self.config[database]['url'],
+                    {'user': self.config[database]['user'],
+                     'password': _password},
+                    self.config[database]['jars'])
+                del _password
+            self.connection_dictionary[database] = connection_object
+            self.log("Connection successful", 'DEBUG')
+        connection_object = self.connection_dictionary.get(database)
+        self.log("Using connection object '{0}'".format(connection_object),
+                 'DEBUG')
+        return connection_object
+
     def get_writer(self, report_location: str) -> pd.ExcelWriter:
         """
-        Creates ExcelWriter object to allow multiple tabs
-        to be written.
+        Create ExcelWriter object to allow multiple tabs to be written.
 
         Parameters
         ----------
@@ -409,8 +486,9 @@ class ReportTemplate(ABC):
                       data: pd.DataFrame,
                       folder_location: str = None) -> object:
         """
-        Creates tempfile object and writes dataframe to
-        it. File will always use gzip compression and end in .gz. Raises
+        Create tempfile object and write dataframe to it.
+
+        File will always use gzip compression and end in .gz. Raises
         DatasetNameError if file_name cannot be used in file. Overwriting may
         cause a critical error and data corruption.
 
@@ -448,8 +526,7 @@ class ReportTemplate(ABC):
                  connection_object: object = None,
                  database_location: str = '') -> Tuple[object, object]:
         """
-        Retrieve data from database via DB. Will prompt user for login as
-        needed.
+        Retrieve data from database via connection_object.
 
         Parameters
         ----------
@@ -474,7 +551,7 @@ class ReportTemplate(ABC):
             Contains data from query.
         connection_object : object
             Database connection_object.
-        """.format([s for s in self.config['DB']])
+        """
         # Check config file for connection_object string
         if db_type not in self.config['DB']:
             self.log("Config location: {0}".format(self.config_location),
@@ -513,10 +590,12 @@ class ReportTemplate(ABC):
                     final_columns: List[str] = None,
                     compress_columns: List[str] = None) -> object:
         """
-        For experimental use. Append column_list to dataframe_input from data
-        from another query. Wil dynamically build queries based on values in
-        each row of dataframe_input and execute while utilizing dask for
-        multithread scheduling.
+        For experimental use.
+
+        Append column_list to dataframe_input from data from another query.
+        Wil dynamically build queries based on values in each row of
+        dataframe_input and execute while utilizing dask for multithread
+        scheduling.
 
         Parameters
         ----------
@@ -550,7 +629,7 @@ class ReportTemplate(ABC):
         dataframe_ouput : DataFrame
             dataframe_input with data populated in column_list from
             sql_function.
-        """.format([s for s in self.config['DB']])
+        """
         def process_chunk(dataframe_input: pd.DataFrame,
                           chunk_list: List[tuple],
                           column_list: List[Any] = column_list,
@@ -652,7 +731,7 @@ class ReportTemplate(ABC):
                     columns_2: List[str] = None,
                     columns_final: List[str] = None) -> object:
         """
-        Merges two parquet files into one.
+        Merge two parquet files into one.
 
         Parameters
         ----------
@@ -717,8 +796,9 @@ class ReportTemplate(ABC):
                     sheet: str = '',
                     excel_writer: pd.ExcelWriter = None) -> str:
         """
-        Export report data to report file. Will change file type to CSV as
-        needed.
+        Export report data to excel file.
+
+        Will change file type to CSV as needed.
 
         Parameters
         ----------
@@ -771,6 +851,7 @@ class ReportTemplate(ABC):
 
     @abstractmethod
     def run(self):
+        """Must implement this method to run report."""
         pass
 
 

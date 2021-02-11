@@ -2,9 +2,8 @@
 """
 Simplified report object with less flexibility, allowing for quick development.
 
-Example:
-
-
+Example
+-------
 from reporting import SimpleReport
 
 
@@ -30,15 +29,16 @@ import dask
 # Pending tqdm.dask module release
 # from tqdm.tqdm.dask import TqdmCallback as ProgressBar
 
-from reporting.templates import ReportTemplate
-from reporting.errors import EmptyReport
-from reporting.future.tqdm.dask import TqdmCallback as ProgressBar
+from reportio.templates import ReportTemplate
+from reportio.errors import EmptyReport
+from reportio.future.tqdm.dask import TqdmCallback as ProgressBar
 
 
 __all__ = ['SimpleReport']
 
 
 class SimpleReport(ReportTemplate):
+    """A robust, minimal report object for straight-foreward reports."""
 
     def __init__(self,
                  report_name: str,
@@ -50,12 +50,11 @@ class SimpleReport(ReportTemplate):
                               'db_type',
                               'connection_object',
                               'db_location'])) -> None:
-        __doc__ = super().__doc__
 
         def _define_optional_functions(metadata: pd.DataFrame = metadata
                                        ) -> None:
             """
-            For internal use. Helper function to adapt ReportTemplate.
+            Adapt ReportTemplate object for SimpleReport metadata.
 
             Parameters
             ----------
@@ -69,10 +68,7 @@ class SimpleReport(ReportTemplate):
 
             # Class specific functions
             def _backup_metadata() -> None:
-                """
-                For internal use. Helper function to adapt backup_data method
-                to account for metadata file.
-                """
+                """Adapt backup_data method to account for metadata file."""
                 file_location: str = os.path.join(
                     self.backup_folder_location,
                     "__" + self.metadata_file_name)
@@ -83,8 +79,7 @@ class SimpleReport(ReportTemplate):
 
             def _delete_excel_files(file_location: str) -> None:
                 """
-                For internal use. Helper function to adapt _delete_data_backup
-                method to account for metadata file.
+                Adapt delete_data_backup method to account for metadata file.
 
                 Parameters
                 ----------
@@ -97,10 +92,7 @@ class SimpleReport(ReportTemplate):
             self._delete_excel_files: callable = _delete_excel_files
 
             def _restore_metadata() -> None:
-                """
-                For internal use. Helper function to adapt _attempt_resume
-                method to account for metadata file.
-                """
+                """Adapt attempt_resume method to account for metadata file."""
                 file_location: str = os.path.join(self.backup_folder_location,
                                                   self.metadata_file_name)
                 if os.path.isfile(file_location):
@@ -137,17 +129,12 @@ class SimpleReport(ReportTemplate):
                              _define_optional_functions)
 
     def _delete_data_backup(self) -> None:
-        """
-        For internal use. Deletes all gz, txt, and xlsx files in backup
-        directory.
-        """
+        """Delete all gz, txt, and xlsx files in backup directory."""
         super().delete_data_backup(self._delete_excel_files)
 
     def _attempt_resume(self) -> List[object]:
         """
-        For internal use. Checks backup folder for files that have been
-        backed up today after a CRITICAL failure. Attempts to read files and
-        resume report near the point of failure.
+        Restore metadata file in addition to other backup files, if present.
 
         Returns
         -------
@@ -159,8 +146,9 @@ class SimpleReport(ReportTemplate):
 
     def _get_writer(self, report_location: str) -> pd.ExcelWriter:
         """
-        For internal use. Creates ExcelWriter object to allow multiple tabs
-        to be written. Deletes and creates new file at report_location.
+        Create ExcelWriter object to allow multiple tabs to be written.
+
+        Deletes old report and creates new file at report_location.
 
         Parameters
         ----------
@@ -182,9 +170,9 @@ class SimpleReport(ReportTemplate):
 
     def backup_data(self) -> None:
         """
-        Saves temporary files and metadata to backup folder in the event of
-        CRICITAL failure. Backup files are utilized if script is run again the
-        same day as the backup.
+        Save temporary files and metadata to backup folder.
+
+        Files are utilized if script is run again the same day as the backup.
         """
         super().backup_data(self._backup_metadata)
 
@@ -195,8 +183,9 @@ class SimpleReport(ReportTemplate):
                     export_locations: List[str] = [],
                     excel_writer: pd.ExcelWriter = None) -> List[str]:
         """
-        Export report data to report file. Will change file type to CSV as
-        needed.
+        Export report data to report file.
+
+        Change file type to CSV as needed.
 
         Parameters
         ----------
@@ -233,8 +222,10 @@ class SimpleReport(ReportTemplate):
                   connection: object = None,
                   db_location: str = '') -> None:
         """
-        Add query to list to be run upon execution. Alternative to setting
-        metadata upon initializing. Will reset .query_list after addition.
+        Add query to list to be run upon execution.
+
+        Alternative method to setting metadata upon initializing. Reset
+        .query_list after addition.
 
         Parameters
         ----------
@@ -280,8 +271,10 @@ class SimpleReport(ReportTemplate):
 
     def remove_query(self, query_name: str) -> None:
         """
-        Remove query from list to be run upon execution. See '.queries' for
-        a list of all query names. Will reset .query_list after removal.
+        Remove query from list to be run upon execution.
+
+        See '.queries' for a list of all query names. Reset .query_list after
+        removal.
 
         Parameters
         ----------
@@ -295,7 +288,7 @@ class SimpleReport(ReportTemplate):
 
     def rename(self, report_name: str) -> None:
         """
-        Will rename report, changing file output.
+        Rename report, changing file output.
 
         Parameters
         ----------
@@ -309,9 +302,7 @@ class SimpleReport(ReportTemplate):
             self.config.write(file)
 
     def reset(self) -> None:
-        """
-        Clear metadata, delete backup data, and reinitialize
-        """
+        """Clear metadata, delete backup data, and re-initialize."""
         self.log("Reseting report")
         self._delete_data_backup()
         self.__init__(
@@ -320,15 +311,16 @@ class SimpleReport(ReportTemplate):
     def run(self, multithread: bool = True, export_locations: List[str] = []
             ) -> List[str]:
         """
-        Will run all queries included in report then export to individual
-        tabs named for each dataset. On CRITICAL failure, will backup data and
-        attempt to resume report on next run.
+        Run all queries and export to individual tabs named for each dataset.
+
+        On CRITICAL error, backup data and attempt to resume report on next
+        execution.
 
         Parameters
         ----------
         multithread : bool, default True
-            Will utilize multithreading if True. Single thread is useful for
-            debug.
+            Utilizes multithreading if True. Single thread is useful for
+            debuging.
 
         Returns
         -------
