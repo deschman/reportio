@@ -1,10 +1,10 @@
 [DEFAULT]
-self_dir = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting\templates
-self_folder = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting
+self_dir = 
+self_folder = 
 
 [PATHS]
-self_dir = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting\templates
-self_folder = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting
+self_dir = 
+self_folder = 
 
 [DB]
 datawhse = DSN=datawhse;Trusted_Connection=yes;
