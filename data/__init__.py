@@ -10,9 +10,11 @@ from typing import List, Any
 
 import pandas as pd
 import dask.distributed as dd
-from tqdm.tqdm.dask import TqdmCallback as ProgressBar
+# Pending tqdm.dask module release
+# from tqdm.tqdm.dask import TqdmCallback as ProgressBar
 
 from reportio.errors import DatasetNameError
+from reportio.future.tqdm.dask import TqdmCallback as ProgressBar
 
 
 __all__ = ['Data']

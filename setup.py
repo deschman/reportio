@@ -16,7 +16,7 @@ setup(name='reportio',
       version='0.3.2dev0',
       author='Dan Eschman',
       author_email='deschman007@gmail.com',
-      url='https://github.com/deschman/reporting',
+      url='https://github.com/deschman/reportio',
       classifiers=[
           'Natural Language :: English',
           'Topic :: Software Development :: Libraries :: Python Modules',

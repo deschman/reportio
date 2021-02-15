@@ -1,10 +1,10 @@
 [DEFAULT]
-self_dir = 
-self_folder = 
+self_dir = c:\users\deschman\spyder-env\lib\site-packages\reportio\templates
+self_folder = c:\users\deschman\spyder-env\lib\site-packages\reportio
 
 [PATHS]
-self_dir = 
-self_folder = 
+self_dir = C:\Users\deschman\Documents\scripts\Tuesday Validation
+self_folder = C:\Users\deschman\Documents\scripts
 
 [DB]
 datawhse = DSN=datawhse;Trusted_Connection=yes;
@@ -16,7 +16,7 @@ access = reserved for use at runtime, not implemented
 [REPORT]
 temp_files_folder = ${PATHS:self_dir}\_temp_files
 backup_folder = ${PATHS:self_dir}\_backup
-report_name = reserved for use at runtime
+report_name = Sales Validation
 export_to = ${PATHS:self_folder}\${report_name}.xlsx
 import_from = reserved for use at runtime, not implemented
 
@@ -32,3 +32,4 @@ url =
 user = 
 password = 
 jars = 
+
