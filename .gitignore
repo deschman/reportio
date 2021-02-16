@@ -5,3 +5,6 @@ __pycache__/
 # Spyder project settings
 .spyderproject
 .spyproject
+
+# Dask workers
+dask-worker-space/

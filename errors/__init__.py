@@ -2,11 +2,13 @@
 """Contains all errors used throughout reportio package."""
 
 
+# %% Variables
 __all__ = ['ReportError', 'LogError', 'ConfigError', 'ReportNameError',
            'DBConnectionError', 'UnexpectedDbType', 'DatasetNameError',
            'EmptyReport']
 
 
+# %% Classes
 class ReportError(Exception):
     """Base exception class for reporting module."""
 

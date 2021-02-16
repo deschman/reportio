@@ -3,7 +3,7 @@ self_dir = c:\users\deschman\spyder-env\lib\site-packages\reportio\templates
 self_folder = c:\users\deschman\spyder-env\lib\site-packages\reportio
 
 [PATHS]
-self_dir = C:\Users\deschman\Documents\scripts\Tuesday Validation
+self_dir = C:\Users\deschman\Documents\scripts\sales_validation
 self_folder = C:\Users\deschman\Documents\scripts
 
 [DB]

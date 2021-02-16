@@ -1,13 +1,19 @@
 # -*- coding: utf-8 -*-
 
 
-import pytest
+# %% Imports
+# %%% Py3 Standard
 import time
+
+# %%% 3rd Party
+import pytest
 import dask.delayed as dd
 
-from ...future.progress import ProgressBar
+# %%% User-Defined
+from reportio.future.progress import ProgressBar
 
 
+# %% Classes
 class test_ProgressBar:
     def test_SampleProgram(self, fltDelay):
         time.sleep(fltDelay)

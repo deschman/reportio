@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
 
 
+# %% Imports
+# %%% 3rd Party
 import pytest
-import os
 
-from ... import logging
+# %%% User-Defined
+from reportio import logging
 
 
+# %% Classes
 class test_logging:
 
+    # %%% Variables
     strTest = 'test'
 
+    # %%% Functions
     def test_basicConfig(self, tmpdir):
         def test_existing(tmpdir):
             assert logging.basicConfig(tmpdir.mkdir("test").join("test.txt")

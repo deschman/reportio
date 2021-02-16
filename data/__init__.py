@@ -2,21 +2,26 @@
 """Contains Data object for use in template reports."""
 
 
+# %% Imports
+# %%% Py3 Standard
 import os
 from tempfile import NamedTemporaryFile
 import multiprocessing
 from abc import abstractmethod
 from typing import List, Any
 
+# %%% 3rd Party
 import pandas as pd
 import dask.distributed as dd
 # Pending tqdm.dask module release
 # from tqdm.tqdm.dask import TqdmCallback as ProgressBar
 
+# %%% User Defined
 from reportio.errors import DatasetNameError
 from reportio.future.tqdm.dask import TqdmCallback as ProgressBar
 
 
+# %% Variables
 __all__ = ['Data']
 
 
@@ -27,10 +32,11 @@ class _Data(object):
         pass
 
 
-# TODO: update docstring
+# %% Classes
 class Data(_Data):
     """Data object for use in template reports."""
 
+    # %%% Private
     def __init__(self,
                  dataset_name: str,
                  log: callable,
@@ -115,6 +121,8 @@ class Data(_Data):
         self._File.add_done_callback(_get_temp_file_2)
         dd.fire_and_forget(self._File)
 
+    # %%% Public
+    # %%%% Properties
     @property
     def dataset_name(self) -> str:
         """
@@ -164,7 +172,7 @@ class Data(_Data):
 
     @property
     def DataFrame(self) -> pd.DataFrame:
-        """Object holding data from query in memory."""
+        """Object holding data from query in RAM."""
         return self._DataFrame
 
     @DataFrame.setter
@@ -174,9 +182,20 @@ class Data(_Data):
 
     @property
     def File(self) -> object:
-        """Edit this."""
+        """
+        Object holding data from query on disk.
+
+        Changing will delete the current file immediately.
+        """
         return self._File
 
+    @File.setter
+    def _set_File(self, File: object) -> None:
+        if self._File is not None:
+            self._File.close()
+        self._File = File
+
+    # %%%% Processes
     def _cross_query(self,
                      dataframe_input: pd.DataFrame,
                      column_list: List[str],

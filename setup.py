@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
+"""Set up reportio package."""
 
 
-from setuptools import setup, find_packages
+# %% Imports
+# %%% Py3 Standard
 import os
 
+# %%% 3rd Party
+from setuptools import setup, find_packages
 
+
+# %% Script
 with open(os.path.join(os.path.dirname(__file__), 'README.md'),
           'r') as objFile:
     long_desc: str = objFile.read()
@@ -31,7 +37,8 @@ setup(name='reportio',
                         'pysqlite3', 'numba', 'pytest-dbfixtures', 'pytest',
                         'pandas', 'pyarrow', 'openpyxl'],
       extras_require={'gzip_alt_processing': 'fastparquet',
-                      'odbc': 'pyodbc',
+                      'odbc_1': 'pyodbc',
+                      'odbc_2': 'getpass',
                       'jdbc': 'jaydebeapi',
                       'mysql_support': 'mysql-connector-python',
                       'multithread_support_1': 'threading',

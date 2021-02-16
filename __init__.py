@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
 
+# %% Imports
 import os
 from typing import Tuple, List
 
 
+# %% Script
 with open(os.path.join(os.path.dirname(__file__), 'README.md'),
           'r') as objFile:
     long_desc: str = objFile.read()
