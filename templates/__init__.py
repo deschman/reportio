@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Contains base template class for report objects."""
+"""
+Contains base template class for report objects.
+
+Example
+-------
+# TODO: add code example
+"""
 
 
 # %% Imports
@@ -40,7 +46,6 @@ from reportio.future.tqdm.dask import TqdmCallback as ProgressBar
 # %% Variables
 # %%% Private
 __all__ = ['write_config', 'ReportTemplate']
-
 
 # %%% Public
 default_self_location: str = os.path.dirname(__file__)

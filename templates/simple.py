@@ -4,7 +4,7 @@ Simplified report object with less flexibility, allowing for quick development.
 
 Example
 -------
-from reporting import SimpleReport
+from reportio import SimpleReport
 
 
 # Initialize report object
