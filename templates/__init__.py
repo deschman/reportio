@@ -33,14 +33,14 @@ from openpyxl import load_workbook
 # from tqdm.dask import TqdmCallback as ProgressBar
 
 # %%% User-Defined
-from reportio import logging as _logging
+from reportio import logger
 from reportio.data import Data
 from reportio.errors import (ConfigError,
                              ReportNameError,
                              DBConnectionError,
                              DatasetNameError,
                              UnexpectedDbType)
-from reportio.future.tqdm.dask import TqdmCallback as ProgressBar
+from reportio.future import ProgressBar
 
 
 # %% Variables
@@ -55,8 +55,8 @@ default_log_location: str = os.path.join(
     os.path.dirname(sys.argv[0]), 'log.txt')
 # TODO: find a way to initialize client here without causing:
 #     TypeError: can't pickle _asyncio.Task objects in data module
-client = dd.Client(processes=False)
-# client = None
+# client = dd.Client(processes=False)
+client = None
 
 
 # %% Classes
@@ -105,9 +105,9 @@ class ReportTemplate(ABC):
         self._sheets: int = 1
         self._files: List[str] = []
         # Configure logger
-        new_log: str = _logging.config(_logging.getLogger(__name__),
-                                       self.log_location)
-        self.log: callable = _logging.log
+        new_log: str = logger.config(logger.getLogger(__name__),
+                                     self.log_location)
+        self.log: callable = logger.log
         # Check if report name can be used
         try:
             NamedTemporaryFile(suffix='__' + self.report_name).close()
@@ -882,9 +882,9 @@ class ReportTemplate_2(ABC):
         self._sheets: int = 1
         self._files: List[str] = []
         # Configure logger
-        new_log: str = _logging.config(_logging.getLogger(__name__),
-                                       self.log_location)
-        self.log: callable = _logging.log
+        new_log: str = logger.config(logger.getLogger(__name__),
+                                     self.log_location)
+        self.log: callable = logger.log
         # Check if report name can be used
         try:
             NamedTemporaryFile(suffix='__' + self.report_name).close()

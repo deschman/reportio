@@ -66,7 +66,7 @@ if missing_dependencies:
 from reportio.templates import ReportTemplate
 from reportio.data import Data
 from reportio.templates.simple import SimpleReport
-from reportio import logging
+from reportio import logger
 from reportio.errors import *
 from reportio.future import ProgressBar
 

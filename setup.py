@@ -19,7 +19,7 @@ short_desc: str = long_desc.split('Short Description')[1].split('\n')[1]
 
 
 setup(name='reportio',
-      version='0.3.2dev0',
+      version='0.3.3dev0',
       author='Dan Eschman',
       author_email='deschman007@gmail.com',
       url='https://github.com/deschman/reportio',

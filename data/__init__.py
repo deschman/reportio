@@ -18,7 +18,7 @@ import dask.distributed as dd
 
 # %%% User Defined
 from reportio.errors import DatasetNameError
-from reportio.future.tqdm.dask import TqdmCallback as ProgressBar
+from reportio.future import ProgressBar
 
 
 # %% Variables
