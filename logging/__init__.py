@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 # TODO: consider refactoring - loggers should never be instantiated directly
-"""Contains all objects from logging standard module with minor tweaks."""
 
 
-# %% Imports
-# %%% Py3 Standard
 import os
 from logging import *  # full compatibility
 from logging import (DEBUG,
@@ -15,51 +12,12 @@ from logging import (DEBUG,
                      getLogger)  # explicit internal use
 import threading
 
-# %%% User-Defined
 from reportio.errors import LogError
 
 
-# %% Variables
 _Logger = getLogger(__name__)
 
 
-# %% Functions
-# %%% Private
-def _log(strMsg, strLevel='INFO') -> None:
-    """
-    Log feedback to log file and to console as needed.
-
-    Parameters
-    ----------
-    strMsg : string
-        Message to be logged.
-    strLevel: {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'},
-        default 'INFO'
-        'DEBUG' : Only prints to log file.
-        'INFO' : Prints to log file and console.
-        'WARNING :' Prints to log file and console. May cause ERROR or
-            CRITICAL issue.
-        'ERROR :' Prints to log file and console. Script attempts to
-            handle.
-        'CRITICAL' : Prints to log file and console. Prints system error.
-        Script/config edits are needed to fix.
-    """
-    # Prevents spam by redirecting log level to debug when multithreading
-    if get_thread_scope():
-        strLevel = "DEBUG"
-    if strLevel == 'DEBUG':
-        _Logger.debug(strMsg)
-    elif strLevel == 'INFO':
-        _Logger.info(strMsg)
-    elif strLevel == 'WARNING':
-        _Logger.warning(strMsg)
-    elif strLevel == 'ERROR':
-        _Logger.error(strMsg)
-    elif strLevel == 'CRITICAL':
-        _Logger.critical(strMsg, exc_info=True)
-
-
-# %%% Public
 def config(
         __Logger: Logger,
         file_name: str,
@@ -67,9 +25,8 @@ def config(
         format: str = '%(asctime)s %(threadName)s %(levelname)s: %(message)s'
         ) -> str:
     """
-    Create initial logger configuration.
-
-    Running multiple times may initialize multiple loggers.
+    Initial logger configuration. Running multiple times may initialize
+    multiple loggers.
 
     Parameters
     ----------
@@ -132,5 +89,39 @@ def get_thread_scope() -> None:
     return threading.current_thread() is not threading.main_thread()
 
 
-# %% Script
+def _log(strMsg, strLevel='INFO') -> None:
+    """
+    Log feedback to log file and to console as needed.
+
+    Parameters
+    ----------
+    strMsg : string
+        Message to be logged.
+    strLevel: {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'},
+        default 'INFO'
+        'DEBUG' : Only prints to log file.
+        'INFO' : Prints to log file and console.
+        'WARNING :' Prints to log file and console. May cause ERROR or
+            CRITICAL issue.
+        'ERROR :' Prints to log file and console. Script attempts to
+            handle.
+        'CRITICAL' : Prints to log file and console. Prints system error.
+        Script/config edits are needed to fix.
+    """
+    # Prevents spam by redirecting log level to debug when multithreading
+    if get_thread_scope():
+        strLevel = "DEBUG"
+    if strLevel == 'DEBUG':
+        _Logger.debug(strMsg)
+    elif strLevel == 'INFO':
+        _Logger.info(strMsg)
+    elif strLevel == 'WARNING':
+        _Logger.warning(strMsg)
+    elif strLevel == 'ERROR':
+        _Logger.error(strMsg)
+    elif strLevel == 'CRITICAL':
+        _Logger.critical(strMsg, exc_info=True)
+
+
+# Overwrite function
 log = _log

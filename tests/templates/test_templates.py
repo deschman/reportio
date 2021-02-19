@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 
 
-# %% Imports
-# %%% 3rd Party
 import pytest
 
-# %%% User-Defined
 from reportio.templates import ReportTemplate
 
 
-# %% Classes
+def test_write_config(self):
+    pass
+
+
 class test_ReportTemplate(ReportTemplate):
+
     def test___init__(self):
         pass
 
@@ -47,8 +48,3 @@ class test_ReportTemplate(ReportTemplate):
 
     def test_run(self):
         pass
-
-
-# %% Functions
-def test_write_config(self):
-    pass

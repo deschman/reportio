@@ -1,10 +1,10 @@
 [DEFAULT]
-self_dir = c:\users\deschman\spyder-env\lib\site-packages\reportio\templates
-self_folder = c:\users\deschman\spyder-env\lib\site-packages\reportio
+self_dir = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting\templates
+self_folder = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting
 
 [PATHS]
-self_dir = C:\Users\deschman\Documents\scripts\sales_validation
-self_folder = C:\Users\deschman\Documents\scripts
+self_dir = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting\templates
+self_folder = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting
 
 [DB]
 datawhse = DSN=datawhse;Trusted_Connection=yes;
@@ -16,20 +16,6 @@ access = reserved for use at runtime, not implemented
 [REPORT]
 temp_files_folder = ${PATHS:self_dir}\_temp_files
 backup_folder = ${PATHS:self_dir}\_backup
-report_name = Sales Validation
+report_name = reserved for use at runtime
 export_to = ${PATHS:self_folder}\${report_name}.xlsx
 import_from = reserved for use at runtime, not implemented
-
-[sqlite]
-db_location = ${DEFAULT:self_folder}\sample.db
-
-[odbc]
-connection_string = 
-
-[jdbc]
-class_name = 
-url = 
-user = 
-password = 
-jars = 
-
