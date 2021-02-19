@@ -1,37 +1,45 @@
 # -*- coding: utf-8 -*-
+"""Set up reportio package."""
 
 
-from setuptools import setup, find_packages
+# %% Imports
+# %%% Py3 Standard
 import os
 
+# %%% 3rd Party
+from setuptools import setup, find_packages
 
+
+# %% Script
 with open(os.path.join(os.path.dirname(__file__), 'README.md'),
           'r') as objFile:
     long_desc: str = objFile.read()
+__doc__ = long_desc
 short_desc: str = long_desc.split('Short Description')[1].split('\n')[1]
 
 
-setup(name='reporting',
-      version='0.3.0',
+setup(name='reportio',
+      version='0.3.2dev0',
       author='Dan Eschman',
       author_email='deschman007@gmail.com',
       url='https://github.com/deschman/reportio',
       classifiers=[
-          'Natural Language :: English',
-          'Topic :: Software Development :: Libraries :: Python Modules',
-          'Programming Language :: Python :: 3',
-          'Operating System :: Microsoft :: Windows',
           'Development Status :: 3 - Alpha',
-          'License :: OSI Approved :: GNU General Public License v3 (GPLv3)'],
-      python_requires='~=3.7',
+          'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+          'Natural Language :: English',
+          'Operating System :: Microsoft :: Windows',
+          'Programming Language :: Python :: 3',
+          'Topic :: Software Development :: Libraries :: Python Modules'],
+      python_requires='>=3.7',
       # TODO: find version dependancies for all of these
-      # TODO: program 'soft' dependancies
-      install_requires=['abc', 'sys', 'os', 'logging', 'configparser',
-                        'datetime', 'tempfile', 'gc', 'pysqlite3', 'numba',
-                        'pytest-dbfixtures', 'pytest', 'pandas', 'pyarrow',
-                        'openpyxl'],
+      install_requires=['abc', 'sys', 'os', 'logging', 'getpass',
+                        'configparser', 'datetime', 'tempfile', 'gc',
+                        'pysqlite3', 'numba', 'pytest-dbfixtures', 'pytest',
+                        'pandas', 'pyarrow', 'openpyxl'],
       extras_require={'gzip_alt_processing': 'fastparquet',
-                      'odbc': 'pyodbc',
+                      'odbc_1': 'pyodbc',
+                      'odbc_2': 'getpass',
+                      'jdbc': 'jaydebeapi',
                       'mysql_support': 'mysql-connector-python',
                       'multithread_support_1': 'threading',
                       'multithread_support_2': 'multiprocessing',

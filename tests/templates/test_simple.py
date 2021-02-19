@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 
 
+# %% Imports
+# %%% 3rd Party
 import pytest
 
+# %%% User-Defined
 from reportio.templates.simple import SimpleReport
 
 
+# %% Classes
 class test_SimpleReport(SimpleReport):
 
     def test___init__():

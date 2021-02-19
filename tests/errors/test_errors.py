@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 
 
+# %% Imports
+# %%% 3rd Party
 import pytest
 
+# %%% User-Defined
 from reportio import errors
 
 
+# %% Classes
 class test_ReportError:
     def test_raise() -> None:
         with pytest.raises(errors.ReportError):
