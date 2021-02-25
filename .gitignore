@@ -16,4 +16,5 @@ log.txt
 
 # Build folders
 dist/
+build/
 .egg-info/
