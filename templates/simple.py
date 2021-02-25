@@ -35,9 +35,7 @@ import dask
 # %%% User-Defined
 from reportio.templates import ReportTemplate
 from reportio.errors import EmptyReport
-# Progress Bar patch 2/19
-# from reportio.future import ProgressBar
-from tqdm import tqdm as ProgressBar
+from reportio.future import ProgressBar
 
 
 # %% Variables

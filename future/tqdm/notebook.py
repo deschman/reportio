@@ -9,13 +9,15 @@ Usage:
 """
 # future division is important to divide integers and get as
 # a result precise floating numbers (instead of truncated int)
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division
+
 # import compatibility functions and utilities
+import re
 import sys
-from .utils import _range
+
 # to inherit from the tqdm class
 from .std import tqdm as std_tqdm
-
+from .utils import _range
 
 if True:  # pragma: no cover
     # import IPython/Jupyter base widget and display utilities
@@ -33,8 +35,7 @@ if True:  # pragma: no cover
         import warnings
         with warnings.catch_warnings():
             warnings.filterwarnings(
-                'ignore',
-                message=".*The `IPython.html` package has been deprecated.*")
+                'ignore', message=".*The `IPython.html` package has been deprecated.*")
             try:
                 import IPython.html.widgets as ipywidgets
             except ImportError:
@@ -42,21 +43,24 @@ if True:  # pragma: no cover
 
     try:  # IPython 4.x / 3.x
         if IPY == 32:
+            from IPython.html.widgets import HTML
             from IPython.html.widgets import FloatProgress as IProgress
-            from IPython.html.widgets import HBox, HTML
+            from IPython.html.widgets import HBox
             IPY = 3
         else:
+            from ipywidgets import HTML
             from ipywidgets import FloatProgress as IProgress
-            from ipywidgets import HBox, HTML
+            from ipywidgets import HBox
     except ImportError:
         try:  # IPython 2.x
-            from IPython.html.widgets import FloatProgressWidget as IProgress
-            from IPython.html.widgets import ContainerWidget as HBox
             from IPython.html.widgets import HTML
+            from IPython.html.widgets import ContainerWidget as HBox
+            from IPython.html.widgets import FloatProgressWidget as IProgress
             IPY = 2
         except ImportError:
             IPY = 0
             IProgress = None
+            HBox = object
 
     try:
         from IPython.display import display  # , clear_output
@@ -69,16 +73,33 @@ if True:  # pragma: no cover
     except ImportError:  # Py2
         from cgi import escape
 
-
 __author__ = {"github.com/": ["lrq3000", "casperdcl", "alexanderkuk"]}
 __all__ = ['tqdm_notebook', 'tnrange', 'tqdm', 'trange']
+
+
+class TqdmHBox(HBox):
+    """`ipywidgets.HBox` with a pretty representation"""
+    def _repr_json_(self, pretty=None):
+        if not hasattr(self, "pbar"):
+            return {}
+        d = self.pbar.format_dict
+        if pretty is not None:
+            d["ascii"] = not pretty
+        return d
+
+    def __repr__(self, pretty=False):
+        if not hasattr(self, "pbar"):
+            return super(TqdmHBox, self).__repr__()
+        return self.pbar.format_meter(**self._repr_json_(pretty))
+
+    def _repr_pretty_(self, pp, *_, **__):
+        pp.text(self.__repr__(True))
 
 
 class tqdm_notebook(std_tqdm):
     """
     Experimental IPython/Jupyter Notebook widget using tqdm!
     """
-
     @staticmethod
     def status_printer(_, total=None, desc=None, ncols=None):
         """
@@ -110,7 +131,7 @@ class tqdm_notebook(std_tqdm):
         rtext = HTML()
         if desc:
             ltext.value = desc
-        container = HBox(children=[ltext, pbar, rtext])
+        container = TqdmHBox(children=[ltext, pbar, rtext])
         # Prepare layout
         if ncols is not None:  # use default style of ipywidgets
             # ncols could be 100, "100px", "100%"
@@ -127,13 +148,6 @@ class tqdm_notebook(std_tqdm):
 
         return container
 
-    @staticmethod
-    def format_meter(n, total, *args, **kwargs):
-        if total and kwargs.get('bar_format', None) is None:
-            kwargs = kwargs.copy()
-            kwargs['bar_format'] = "{l_bar}<bar/>{r_bar}"
-        return std_tqdm.format_meter(n, total, *args, **kwargs)
-
     def display(self, msg=None, pos=None,
                 # additional signals
                 close=False, bar_style=None):
@@ -145,7 +159,11 @@ class tqdm_notebook(std_tqdm):
         # clear_output(wait=1)
 
         if not msg and not close:
-            msg = self.__repr__()
+            d = self.format_dict
+            # remove {bar}
+            d['bar_format'] = (d['bar_format'] or "{l_bar}<bar/>{r_bar}").replace(
+                "{bar}", "<bar/>")
+            msg = self.format_meter(**d)
 
         ltext, pbar, rtext = self.container.children
         pbar.value = self.n
@@ -153,15 +171,9 @@ class tqdm_notebook(std_tqdm):
         if msg:
             # html escape special characters (like '&')
             if '<bar/>' in msg:
-                left, right = map(escape, msg.split('<bar/>', 1))
+                left, right = map(escape, re.split(r'\|?<bar/>\|?', msg, 1))
             else:
                 left, right = '', escape(msg)
-
-            # remove inesthetical pipes
-            if left and left[-1] == '|':
-                left = left[:-1]
-            if right and right[0] == '|':
-                right = right[1:]
 
             # Update description
             ltext.value = left
@@ -173,7 +185,7 @@ class tqdm_notebook(std_tqdm):
         if bar_style:
             # Hack-ish way to avoid the danger bar_style being overridden by
             # success because the bar gets closed after the error...
-            if not (pbar.bar_style == 'danger' and bar_style == 'success'):
+            if pbar.bar_style != 'danger' or bar_style != 'success':
                 pbar.bar_style = bar_style
 
         # Special signal to close the bar
@@ -210,16 +222,13 @@ class tqdm_notebook(std_tqdm):
 
         # Initialize parent class + avoid printing by using gui=True
         kwargs['gui'] = True
-        if 'bar_format' in kwargs:
-            kwargs['bar_format'] = kwargs['bar_format'].replace(
-                '{bar}', '<bar/>')
         # convert disable = None to False
         kwargs['disable'] = bool(kwargs.get('disable', False))
         colour = kwargs.pop('colour', None)
         display_here = kwargs.pop('display', True)
         super(tqdm_notebook, self).__init__(*args, **kwargs)
         if self.disable or not kwargs['gui']:
-            self.sp = lambda *_, **__: None
+            self.disp = lambda *_, **__: None
             return
 
         # Get bar width
@@ -228,56 +237,55 @@ class tqdm_notebook(std_tqdm):
         # Replace with IPython progress bar display (with correct total)
         unit_scale = 1 if self.unit_scale is True else self.unit_scale or 1
         total = self.total * unit_scale if self.total else self.total
-        self.container = self.status_printer(
-            self.fp, total, self.desc, self.ncols)
+        self.container = self.status_printer(self.fp, total, self.desc, self.ncols)
+        self.container.pbar = self
         if display_here:
             display(self.container)
-        self.sp = self.display
+        self.disp = self.display
         self.colour = colour
 
         # Print initial bar state
         if not self.disable:
             self.display()
 
-    def __iter__(self, *args, **kwargs):
+    def __iter__(self):
         try:
-            for obj in super(tqdm_notebook, self).__iter__(*args, **kwargs):
+            for obj in super(tqdm_notebook, self).__iter__():
                 # return super(tqdm...) will not catch exception
                 yield obj
         # NB: except ... [ as ...] breaks IPython async KeyboardInterrupt
         except:  # NOQA
-            self.sp(bar_style='danger')
+            self.disp(bar_style='danger')
             raise
         # NB: don't `finally: close()`
         # since this could be a shared bar which the user will `reset()`
 
-    def update(self, *args, **kwargs):
+    def update(self, n=1):
         try:
-            return super(tqdm_notebook, self).update(*args, **kwargs)
+            return super(tqdm_notebook, self).update(n=n)
         # NB: except ... [ as ...] breaks IPython async KeyboardInterrupt
         except:  # NOQA
             # cannot catch KeyboardInterrupt when using manual tqdm
             # as the interrupt will most likely happen on another statement
-            self.sp(bar_style='danger')
+            self.disp(bar_style='danger')
             raise
         # NB: don't `finally: close()`
         # since this could be a shared bar which the user will `reset()`
 
-    def close(self, *args, **kwargs):
-        super(tqdm_notebook, self).close(*args, **kwargs)
+    def close(self):
+        super(tqdm_notebook, self).close()
         # Try to detect if there was an error or KeyboardInterrupt
         # in manual mode: if n < total, things probably got wrong
         if self.total and self.n < self.total:
-            self.sp(bar_style='danger')
+            self.disp(bar_style='danger')
         else:
             if self.leave:
-                self.sp(bar_style='success')
+                self.disp(bar_style='success')
             else:
-                self.sp(close=True)
+                self.disp(close=True)
 
-    def moveto(self, *_, **__):
-        # void -> avoid extraneous `\n` in IPython output cell
-        return
+    def clear(self, *_, **__):
+        pass
 
     def reset(self, total=None):
         """
@@ -289,6 +297,8 @@ class tqdm_notebook(std_tqdm):
         ----------
         total  : int or float, optional. Total to use for the new bar.
         """
+        if self.disable:
+            return super(tqdm_notebook, self).reset(total=total)
         _, pbar, _ = self.container.children
         pbar.bar_style = ''
         if total is not None:

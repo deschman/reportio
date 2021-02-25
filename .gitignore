@@ -8,3 +8,8 @@ __pycache__/
 
 # Dask workers
 dask-worker-space/
+
+# Processing folders
+_backup/
+_temp_files/
+log.txt

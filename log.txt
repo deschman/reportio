@@ -208,3 +208,133 @@ AttributeError: 'float' object has no attribute 'cursor'
 2021-02-19 17:11:24,238 MainThread DEBUG: Backing up metadata to 'C:\Users\deschman\spyder-env\Lib\site-packages\reportio\_backup\__Metadata.xlsx'
 2021-02-19 17:11:24,278 MainThread INFO: Backup successful
 2021-02-19 17:12:04,938 MainThread INFO: QUITTING
+2021-02-22 13:15:03,642 MainThread INFO: Starting report with existing log located at 'C:\Users\deschman\spyder-env\Lib\site-packages\reportio\log.txt'
+2021-02-22 13:15:03,642 MainThread DEBUG: Variables:
+                     dirSelf: 'C:\Users\deschman\spyder-env\Lib\site-packages\reportio'
+                     log_location: 'C:\Users\deschman\spyder-env\Lib\site-packages\reportio\log.txt'
+                     config_location: 'c:\users\deschman\spyder-env\lib\site-packages\reportio\templates\config.txt'
+2021-02-22 13:15:03,642 MainThread INFO: Removing C:\Users\deschman\spyder-env\Lib\site-packages\Yearly Sales.xlsx
+2021-02-22 13:15:03,649 MainThread DEBUG: Checking for backup files
+2021-02-22 13:15:03,649 MainThread DEBUG: No recent backup files found
+2021-02-22 13:15:03,649 MainThread INFO: Cleaning up old data backup
+2021-02-22 13:15:03,649 MainThread DEBUG: Removing 'C:\Users\deschman\spyder-env\Lib\site-packages\reportio\_backup\startDate.txt'
+2021-02-22 13:15:03,649 MainThread DEBUG: Adding row to metadata with:
+                         query_name: Category
+                         sql: SELECT * FROM CATEGORY
+                         db_type: sqlite
+                         connection: None
+                         db_location: 
+2021-02-22 13:15:03,649 MainThread DEBUG: Adding row to metadata with:
+                         query_name: Subcategory
+                         sql: SELECT * FROM SUB_CATEGORY
+                         db_type: sqlite
+                         connection: None
+                         db_location: 
+2021-02-22 13:15:03,649 MainThread DEBUG: Adding row to metadata with:
+                         query_name: Segment
+                         sql: SELECT * FROM SEGMENT
+                         db_type: sqlite
+                         connection: None
+                         db_location: 
+2021-02-22 13:15:03,696 MainThread INFO: Running with multithreading
+2021-02-22 13:15:03,711 MainThread CRITICAL: See log for debug details
+Traceback (most recent call last):
+  File "c:\users\deschman\spyder-env\lib\site-packages\dask\local.py", line 436, in get_async
+    start_state(dsk, state)
+  File "c:\users\deschman\spyder-env\lib\site-packages\reportio\future\tqdm\dask.py", line 30, in _start_state
+    self.pbar = self.tqdm_class(total=sum(
+  File "c:\users\deschman\spyder-env\lib\site-packages\reportio\future\tqdm\notebook.py", line 231, in __init__
+    self.container = self.status_printer(
+  File "c:\users\deschman\spyder-env\lib\site-packages\reportio\future\tqdm\notebook.py", line 96, in status_printer
+    raise ImportError(
+ImportError: IProgress not found. Please update jupyter and ipywidgets. See https://ipywidgets.readthedocs.io/en/stable/user_install.html
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "c:\users\deschman\spyder-env\lib\site-packages\reportio\templates\simple.py", line 397, in run
+    export_locations = _process_queries(multithread,
+  File "c:\users\deschman\spyder-env\lib\site-packages\reportio\templates\simple.py", line 376, in _process_queries
+    export_locations.compute()))
+  File "c:\users\deschman\spyder-env\lib\site-packages\dask\base.py", line 281, in compute
+    (result,) = compute(self, traverse=False, **kwargs)
+  File "c:\users\deschman\spyder-env\lib\site-packages\dask\base.py", line 563, in compute
+    results = schedule(dsk, keys, **kwargs)
+  File "c:\users\deschman\spyder-env\lib\site-packages\dask\threaded.py", line 76, in get
+    results = get_async(
+  File "c:\users\deschman\spyder-env\lib\site-packages\dask\local.py", line 502, in get_async
+    finish(dsk, state, not succeeded)
+  File "c:\users\deschman\spyder-env\lib\site-packages\reportio\future\tqdm\dask.py", line 37, in _finish
+    self.pbar.close()
+AttributeError: 'TqdmCallback' object has no attribute 'pbar'
+2021-02-22 13:15:03,727 MainThread WARNING: Backing up data
+2021-02-22 13:15:03,727 MainThread DEBUG: Backup location: C:\Users\deschman\spyder-env\Lib\site-packages\reportio\_backup
+2021-02-22 13:15:03,727 MainThread DEBUG: Backing up metadata to 'C:\Users\deschman\spyder-env\Lib\site-packages\reportio\_backup\__Metadata.xlsx'
+2021-02-22 13:15:03,765 MainThread INFO: Backup successful
+2021-02-22 13:15:08,208 MainThread INFO: QUITTING
+2021-02-23 13:33:11,773 MainThread INFO: Starting report with existing log located at 'C:\Users\deschman\spyder-env\Lib\site-packages\reportio\log.txt'
+2021-02-23 13:33:11,773 MainThread DEBUG: Variables:
+                     dirSelf: 'C:\Users\deschman\spyder-env\Lib\site-packages\reportio'
+                     log_location: 'C:\Users\deschman\spyder-env\Lib\site-packages\reportio\log.txt'
+                     config_location: 'c:\users\deschman\spyder-env\lib\site-packages\reportio\templates\config.txt'
+2021-02-23 13:33:11,773 MainThread INFO: Removing C:\Users\deschman\spyder-env\Lib\site-packages\Yearly Sales.xlsx
+2021-02-23 13:33:12,794 MainThread DEBUG: Checking for backup files
+2021-02-23 13:33:12,794 MainThread DEBUG: No recent backup files found
+2021-02-23 13:33:12,794 MainThread INFO: Cleaning up old data backup
+2021-02-23 13:33:12,809 MainThread DEBUG: Removing 'C:\Users\deschman\spyder-env\Lib\site-packages\reportio\_backup\startDate.txt'
+2021-02-23 13:33:12,809 MainThread DEBUG: Adding row to metadata with:
+                         query_name: Category
+                         sql: SELECT * FROM CATEGORY
+                         db_type: sqlite
+                         connection: None
+                         db_location: 
+2021-02-23 13:33:12,809 MainThread DEBUG: Adding row to metadata with:
+                         query_name: Subcategory
+                         sql: SELECT * FROM SUB_CATEGORY
+                         db_type: sqlite
+                         connection: None
+                         db_location: 
+2021-02-23 13:33:12,809 MainThread DEBUG: Adding row to metadata with:
+                         query_name: Segment
+                         sql: SELECT * FROM SEGMENT
+                         db_type: sqlite
+                         connection: None
+                         db_location: 
+2021-02-23 13:33:12,862 MainThread INFO: Running with multithreading
+2021-02-23 13:33:12,878 Thread-9 DEBUG: Querying database
+2021-02-23 13:33:12,878 Thread-10 DEBUG: Querying database
+2021-02-23 13:33:12,878 Thread-11 DEBUG: Querying database
+2021-02-23 13:33:12,878 MainThread CRITICAL: See log for debug details
+Traceback (most recent call last):
+  File "c:\users\deschman\spyder-env\lib\site-packages\reportio\templates\simple.py", line 397, in run
+    export_locations = _process_queries(multithread,
+  File "c:\users\deschman\spyder-env\lib\site-packages\reportio\templates\simple.py", line 376, in _process_queries
+    export_locations.compute()))
+  File "c:\users\deschman\spyder-env\lib\site-packages\dask\base.py", line 281, in compute
+    (result,) = compute(self, traverse=False, **kwargs)
+  File "c:\users\deschman\spyder-env\lib\site-packages\dask\base.py", line 563, in compute
+    results = schedule(dsk, keys, **kwargs)
+  File "c:\users\deschman\spyder-env\lib\site-packages\dask\threaded.py", line 76, in get
+    results = get_async(
+  File "c:\users\deschman\spyder-env\lib\site-packages\dask\local.py", line 487, in get_async
+    raise_exception(exc, tb)
+  File "c:\users\deschman\spyder-env\lib\site-packages\dask\local.py", line 317, in reraise
+    raise exc
+  File "c:\users\deschman\spyder-env\lib\site-packages\dask\local.py", line 222, in execute_task
+    result = _execute_task(task, data)
+  File "c:\users\deschman\spyder-env\lib\site-packages\dask\core.py", line 121, in _execute_task
+    return func(*(_execute_task(a, cache) for a in args))
+  File "c:\users\deschman\spyder-env\lib\site-packages\reportio\templates\__init__.py", line 538, in get_data
+    temporary_dataframe: pd.DataFrame = pd.read_sql(
+  File "c:\users\deschman\spyder-env\lib\site-packages\pandas\io\sql.py", line 484, in read_sql
+    return pandas_sql.read_query(
+  File "c:\users\deschman\spyder-env\lib\site-packages\pandas\io\sql.py", line 1743, in read_query
+    cursor = self.execute(*args)
+  File "c:\users\deschman\spyder-env\lib\site-packages\pandas\io\sql.py", line 1695, in execute
+    cur = self.con.cursor()
+AttributeError: 'float' object has no attribute 'cursor'
+2021-02-23 13:33:12,909 MainThread WARNING: Backing up data
+2021-02-23 13:33:12,909 MainThread DEBUG: Backup location: C:\Users\deschman\spyder-env\Lib\site-packages\reportio\_backup
+2021-02-23 13:33:12,909 MainThread DEBUG: Backing up metadata to 'C:\Users\deschman\spyder-env\Lib\site-packages\reportio\_backup\__Metadata.xlsx'
+2021-02-23 13:33:12,941 MainThread INFO: Backup successful
+2021-02-23 13:33:20,123 MainThread INFO: QUITTING

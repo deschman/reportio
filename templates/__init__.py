@@ -4,7 +4,22 @@ Contains base template class for report objects.
 
 Example
 -------
-# TODO: add code example
+from reportio import ReportTemplate
+
+
+# Create report object at runtime
+class Report(ReportTemplate):
+
+    def __init__(self):
+        pass
+
+# Add queries to report object
+report.add_query("Category", "SELECT * FROM CATEGORY", 'sqlite')
+report.add_query("Subcategory", "SELECT * FROM SUB_CATEGORY", 'sqlite')
+report.add_query("Segment", "SELECT * FROM SEGMENT", 'sqlite')
+
+# Process and export
+report.run()
 """
 
 
@@ -869,8 +884,7 @@ class ReportTemplate_2(ABC):
                  config_location: str = default_config_location,
                  connection_dictionary: Dict[str, object] = {},
                  client: dd.Client = client,
-                 optional_function: callable = None,
-                 _default_config_location: str = default_config_location
+                 optional_function: callable = None
                  ) -> None:
         # Assign base variables
         self.report_name: str = report_name
@@ -1263,36 +1277,6 @@ class ReportTemplate_2(ABC):
         data.to_parquet(file, compression='gzip')
         self._files.append(file)
         return file
-
-    def get_data(self,
-                 name: str,
-                 sql: str = '',
-                 connection: object = None) -> Data:
-        """
-        Return Data object for given sql and connection.
-
-        Parameters
-        ----------
-        name : str
-            Name of Data object.
-        sql : str, optional
-            Query to be run.
-        connection : object, optional
-            Connection to database where sql will run.
-
-        Returns
-        -------
-        Data
-            Contains data attributes.
-
-        """
-        return Data(name,
-                    self.log,
-                    self.client,
-                    self.temp_files_location,
-                    self.backup_folder_location,
-                    sql,
-                    connection)
 
     def export_data(self,
                     file: object,

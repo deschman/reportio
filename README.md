@@ -46,9 +46,9 @@ connection at runtime. In this case, the header of your script should import
     import pyodbc
 
     conn = pyodbc.connect(driver='{SQL Server Native Client 11.0}',
-                            server='myserver',
-                            database='mydatabase',
-                            trusted_connection = 'yes')'''
+                          server='myserver',
+                          database='mydatabase',
+                          trusted_connection = 'yes')
 
 You can create an instance of *SimpleReport* to get started. You need to
 provide a string name for your report. You can add, remove, and rename queries.
@@ -58,8 +58,12 @@ When you run the report, the queries will be run with multithreading. To use
 single threading pass *False* into the run method.
 
     rep=r.SimpleReport("test")
-    rep.addQuery("testQuery", "SELECT * FROM mydatabase.dbo.mytable", connection=conn)
-    rep.addQuery("testQuery2", "SELECT * FROM mydatabase.dbo.myothertable", connection=conn)
+    rep.addQuery("testQuery",
+                 "SELECT * FROM mydatabase.dbo.mytable",
+                 connection=conn)
+    rep.addQuery("testQuery2",
+                 "SELECT * FROM mydatabase.dbo.myothertable",
+                 connection=conn)
     rep.run(False)
 
 ##Logging
