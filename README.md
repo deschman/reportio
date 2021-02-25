@@ -66,7 +66,7 @@ single threading pass *False* into the run method.
                  connection=conn)
     rep.run(False)
 
-##Logging
+## Logging
 **reportio** has robust logging functionality. Refer to your config to find the
 filepaths for the output and logs. The console will also display this
 information, as well as the filepath to your report in an Excel file. If you
