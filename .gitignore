@@ -13,3 +13,8 @@ dask-worker-space/
 _backup/
 _temp_files/
 log.txt
+
+# Build folders
+dist/
+build/
+reportio.egg-info/
