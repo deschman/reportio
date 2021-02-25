@@ -1,17 +1,13 @@
 [DEFAULT]
-self_dir = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting\templates
-self_folder = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting
+self_dir = reserved for use at runtime
+self_folder = reserved for use at runtime
 
 [PATHS]
-self_dir = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting\templates
-self_folder = C:\Users\deschman\AppData\Local\Continuum\anaconda3\lib\site-packages\reporting
+self_dir = reserved for use at runtime
+self_folder = reserved for use at runtime
 
 [DB]
-datawhse = DSN=datawhse;Trusted_Connection=yes;
-ozark1 = DSN=ozark1;Trusted_Connection=yes;
-sailfishprod = DSN=SailfishProd;Trusted_Connection=yes;
 sqlite = ${DEFAULT:self_folder}\sample.db
-access = reserved for use at runtime, not implemented
 
 [REPORT]
 temp_files_folder = ${PATHS:self_dir}\_temp_files
@@ -19,3 +15,16 @@ backup_folder = ${PATHS:self_dir}\_backup
 report_name = reserved for use at runtime
 export_to = ${PATHS:self_folder}\${report_name}.xlsx
 import_from = reserved for use at runtime, not implemented
+
+[sqlite]
+db_location = ${DEFAULT:self_folder}\sample.db
+
+[odbc]
+connection_string = reserved for user input
+
+[jdbc]
+class_name = reserved for user input
+url = reserved for user input
+user = reserved for user input
+password = reserved for user input
+jars = reserved for user input

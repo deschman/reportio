@@ -32,7 +32,7 @@ import dask
 
 from reportio.templates import ReportTemplate
 from reportio.errors import EmptyReport
-from reportio.future.tqdm.dask import TqdmCallback as ProgressBar
+from reportio.future import ProgressBar
 
 
 __all__ = ['SimpleReport']

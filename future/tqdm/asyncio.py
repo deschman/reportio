@@ -7,8 +7,10 @@ Usage:
 >>> async for i in trange(10):
 ...     ...
 """
-from .std import tqdm as std_tqdm
 import asyncio
+
+from .std import tqdm as std_tqdm
+
 __author__ = {"github.com/": ["casperdcl"]}
 __all__ = ['tqdm_asyncio', 'tarange', 'tqdm', 'trange']
 
@@ -44,7 +46,7 @@ class tqdm_asyncio(std_tqdm):
         except StopIteration:
             self.close()
             raise StopAsyncIteration
-        except:
+        except BaseException:
             self.close()
             raise
 
@@ -52,8 +54,7 @@ class tqdm_asyncio(std_tqdm):
         return self.iterable.send(*args, **kwargs)
 
     @classmethod
-    def as_completed(cls, fs, *, loop=None, timeout=None, total=None,
-                     **tqdm_kwargs):
+    def as_completed(cls, fs, *, loop=None, timeout=None, total=None, **tqdm_kwargs):
         """
         Wrapper for `asyncio.as_completed`.
         """
@@ -61,9 +62,6 @@ class tqdm_asyncio(std_tqdm):
             total = len(fs)
         yield from cls(asyncio.as_completed(fs, loop=loop, timeout=timeout),
                        total=total, **tqdm_kwargs)
-
-    def __new__(cls, *args, **kwargs):
-        return cls.get_new(super(tqdm_asyncio, cls), std_tqdm, *args, **kwargs)
 
 
 def tarange(*args, **kwargs):

@@ -14,7 +14,9 @@ Usage:
 """
 import sys
 import warnings
+
 from .std import TqdmExperimentalWarning
+
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", category=TqdmExperimentalWarning)
     from .autonotebook import tqdm as notebook_tqdm
@@ -28,7 +30,7 @@ else:  # Python3.5+
     from .std import tqdm as std_tqdm
 
     if notebook_tqdm != std_tqdm:
-        class tqdm(notebook_tqdm, asyncio_tqdm):
+        class tqdm(notebook_tqdm, asyncio_tqdm):  # pylint: disable=inconsistent-mro
             pass
     else:
         tqdm = asyncio_tqdm

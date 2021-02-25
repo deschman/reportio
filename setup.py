@@ -11,8 +11,8 @@ with open(os.path.join(os.path.dirname(__file__), 'README.md'),
 short_desc: str = long_desc.split('Short Description')[1].split('\n')[1]
 
 
-setup(name='reporting',
-      version='0.3.0',
+setup(name='reportio',
+      version='0.3.3dev0',
       author='Dan Eschman',
       author_email='deschman007@gmail.com',
       url='https://github.com/deschman/reportio',

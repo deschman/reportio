@@ -16,7 +16,7 @@ import dask.distributed as dd
 # from tqdm.dask import TqdmCallback as ProgressBar
 
 from reportio.errors import DatasetNameError
-from reportio.future.tqdm.dask import TqdmCallbak as ProgressBar
+from reportio.future import ProgressBar
 
 
 __all__ = ['Data']
