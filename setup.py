@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
+"""Sets up reportio package."""
 
 
+# %% Imports
 from setuptools import setup, find_packages
 import os
 
 
+# %% Script
 with open(os.path.join(os.path.dirname(__file__), 'README.md'),
           'r') as objFile:
     long_desc: str = objFile.read()
