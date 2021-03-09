@@ -14,15 +14,15 @@ as a simple object for quickly building straight-forward reports.
     from reportio import SimpleReport
 
 
-    \# Initialize report object
+    # Initialize report object
     objReport = SimpleReport("Yearly Sales")
 
-    \# Add queries to report object
+    # Add queries to report object
     objReport.addQuery("Category", "SELECT * FROM CATEGORY", 'sqlite')
     objReport.addQuery("Subcategory", "SELECT * FROM SUB_CATEGORY", 'sqlite')
     objReport.addQuery("Segment", "SELECT * FROM SEGMENT", 'sqlite')
 
-    \# Process and export
+    # Process and export
     objReport.run()
 
 ### ReportTemplate
@@ -111,7 +111,7 @@ single threading pass *False* into the run method.
                  connection=conn)
     rep.run(False)
 
-##Logging
+## Logging
 **reportio** has robust logging functionality. Refer to your config to find the
 filepaths for the output and logs. The console will also display this
 information, as well as the filepath to your report in an Excel file. If you

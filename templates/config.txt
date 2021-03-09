@@ -1,10 +1,10 @@
 [DEFAULT]
-self_dir =
-self_folder =
+self_dir = reserved for use at runtime
+self_folder = reserved for use at runtime
 
 [PATHS]
-self_dir =
-self_folder =
+self_dir = reserved for use at runtime
+self_folder = reserved for use at runtime
 
 [DB]
 sqlite = ${DEFAULT:self_folder}\sample.db

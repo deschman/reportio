@@ -1,32 +1,24 @@
 # -*- coding: utf-8 -*-
 
 
-# %% Imports
-# %%% Py3 Standard
+import pytest
 import os
 import sqlite3
 import time
 
-# %%% 3rd Party
-import pytest
 import pandas as pd
 import dask.distributed as dd
 
-# %%% User-Defined
 from reportio.data import Data
 
 
-# %% Variables
 client = dd.Client(processes=False)
 file_folder = os.path.dirname(__file__)
 root_dir = os.path.dirname(os.path.dirname(file_folder))
 
 
-# %% Classes
 class test_Data(Data):
 
-    # %%% Functions
-    # %%%% Private
     def __init__(self,
                  dataset_name: str = 'test',
                  log: callable = print,
@@ -47,9 +39,6 @@ class test_Data(Data):
                          sql,
                          connection)
 
-    # %%%% Public
-    # This fails due to https://github.com/dask/distributed/issues/4464
-    # TODO: work around above bug
     def test__get_data(self) -> None:
         super()._get_data()
         while isinstance(self._DataFrame, dd.Future):
@@ -84,7 +73,6 @@ class test_Data(Data):
         pass
 
 
-# %% Script
 if __name__ == '__main__':
     data = test_Data()
     data.test__get_data()
