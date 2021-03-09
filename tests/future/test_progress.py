@@ -10,7 +10,7 @@ import pytest
 import dask.delayed as dd
 
 # %%% User-Defined
-from reportio.future.progress import ProgressBar
+from reportio.future import ProgressBar
 
 
 # %% Classes

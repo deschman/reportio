@@ -121,6 +121,6 @@ class test_ReportTemplate(ReportTemplate):
 
 
 # %% Functions
-def test_write_config(self):
+def test_write_config():
     write_config()
     assert True

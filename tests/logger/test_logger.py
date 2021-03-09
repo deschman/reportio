@@ -58,8 +58,8 @@ class test_logger:
         logger.critical(strTest)
         assert strTest in objFile.read()
 
-    @pytest.mark.parameterize(['DEBUG', 'INFO', 'WARNING', 'ERROR',
-                               'CRITICAL'], 'strLevel')
+    @pytest.mark.parametrize(['DEBUG', 'INFO', 'WARNING', 'ERROR',
+                              'CRITICAL'], 'strLevel')
     def test_log(self, tmpdir, strTest, strLevel):
         objFile = tmpdir.mkdir("test").join("test.txt")
         logger.basicConfig(objFile.name)

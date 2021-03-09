@@ -1,10 +1,10 @@
 [DEFAULT]
-self_dir =
-self_folder =
+self_dir = C:\Users\deschman\spyder-env\Lib\site-packages\reportio\templates
+self_folder = C:\Users\deschman\spyder-env\Lib\site-packages\reportio
 
 [PATHS]
-self_dir =
-self_folder =
+self_dir = C:\ProgramData\Miniconda3\lib\site-packages\pytest
+self_folder = C:\ProgramData\Miniconda3\lib\site-packages
 
 [DB]
 sqlite = ${DEFAULT:self_folder}\sample.db
