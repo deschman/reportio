@@ -32,7 +32,7 @@ as a simple object for quickly building straight-forward reports.
     from reportio import ReportTemplate
 
 
-    \# Create report object at runtime
+    # Create report object at runtime
     class Report(ReportTemplate):
         """Test report."""
 
@@ -52,7 +52,7 @@ as a simple object for quickly building straight-forward reports.
                              client,
                              optional_function)
 
-        \# 'run' method must be instantiated
+        # 'run' method must be instantiated
         def run(self):
             """Run test report."""
             self.file = self.get_data('test_data',
@@ -61,7 +61,7 @@ as a simple object for quickly building straight-forward reports.
             self.export_data(self.file, self.config['REPORT']['export_to'])
 
 
-    \# Script report object to run
+    # Script report object to run
     if __name__ == '__main__':
         report = Report()
         try:
