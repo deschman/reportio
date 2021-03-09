@@ -15,7 +15,7 @@ short_desc: str = long_desc.split('Short Description')[1].split('\n')[1]
 
 
 setup(name='reportio',
-      version='0.3.4',
+      version='0.3.5',
       author='Dan Eschman',
       author_email='deschman007@gmail.com',
       url='https://github.com/deschman/reportio',
@@ -26,9 +26,9 @@ setup(name='reportio',
           'Operating System :: Microsoft :: Windows',
           'Development Status :: 3 - Alpha',
           'License :: OSI Approved :: GNU General Public License v3 (GPLv3)'],
-      python_requires='~=3.7',
+      python_requires='>=3.3',
       # TODO: find version dependancies for all of these
-      install_requires=['pysqlite3', 'numba', 'pytest-dbfixtures',
+      install_requires=['pysqlite3', 'numba', 'pytest-dbfixtures', 'pytest',
                         'pandas', 'pyarrow', 'openpyxl'],
       extras_require={'gzip_alt_processing': 'fastparquet',
                       'odbc': 'pyodbc',

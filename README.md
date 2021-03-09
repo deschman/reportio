@@ -26,7 +26,52 @@ as a simple object for quickly building straight-forward reports.
     objReport.run()
 
 ### ReportTemplate
-    # TODO: add code example
+    import os
+    from typing import Dict, Any
+
+    from reportio import ReportTemplate
+
+
+    \# Create report object at runtime
+    class Report(ReportTemplate):
+        """Test report."""
+
+        def __init__(self,
+                     report_name: str = 'test',
+                     log_location: str = os.path.join(
+                         os.path.dirname(__file__), 'simple_log.txt'),
+                     config_location: str = os.path.join(
+                         os.path.dirname(__file__), 'simple_config.txt'),
+                     connection_dictionary: Dict[str, object] = {},
+                     client: Any = None,
+                     optional_function: callable = None) -> None:
+            super().__init__(report_name,
+                             log_location,
+                             config_location,
+                             connection_dictionary,
+                             client,
+                             optional_function)
+
+        \# 'run' method must be instantiated
+        def run(self):
+            """Run test report."""
+            self.file = self.get_data('test_data',
+                                      "SELECT * FROM CATEGORY",
+                                      'sqlite')[0]
+            self.export_data(self.file, self.config['REPORT']['export_to'])
+
+
+    \# Script report object to run
+    if __name__ == '__main__':
+        report = Report()
+        try:
+            report.run()
+        except Exception:
+            report.log("See log for debug details", 'CRITICAL')
+            report.backup_data()
+            report.log("Backup successful")
+            input("PRESS ENTER KEY TO QUIT")
+            report.log("QUITTING")
 
 ### Windows Authentication of SSMS Database
 Before utilizing **reportio** the user should first examine the **config**

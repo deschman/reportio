@@ -20,11 +20,11 @@ import_from = reserved for use at runtime, not implemented
 db_location = ${DEFAULT:self_folder}\sample.db
 
 [odbc]
-connection_string = reserved for user input
+connection_string =
 
 [jdbc]
-class_name = reserved for user input
-url = reserved for user input
-user = reserved for user input
-password = reserved for user input
-jars = reserved for user input
+class_name =
+url =
+user =
+password =
+jars =
