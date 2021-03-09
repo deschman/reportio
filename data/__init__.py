@@ -1,27 +1,24 @@
 # -*- coding: utf-8 -*-
-"""Contains Data object for use in template reports."""
+"""
+Data object for use in template reports.
+"""
 
 
-# %% Imports
-# %%% Py3 Standard
 import os
 from tempfile import NamedTemporaryFile
 import multiprocessing
 from abc import abstractmethod
 from typing import List, Any
 
-# %%% 3rd Party
 import pandas as pd
 import dask.distributed as dd
 # Pending tqdm.dask module release
-# from tqdm.tqdm.dask import TqdmCallback as ProgressBar
+# from tqdm.dask import TqdmCallback as ProgressBar
 
-# %%% User Defined
 from reportio.errors import DatasetNameError
 from reportio.future import ProgressBar
 
 
-# %% Variables
 __all__ = ['Data']
 
 
@@ -32,11 +29,8 @@ class _Data(object):
         pass
 
 
-# %% Classes
 class Data(_Data):
-    """Data object for use in template reports."""
 
-    # %%% Private
     def __init__(self,
                  dataset_name: str,
                  log: callable,
@@ -58,7 +52,10 @@ class Data(_Data):
         # self._get_temp_file()
 
     def _get_data(self) -> None:
-        """Retrieve .DataFrame using .sql and .connection."""
+        """
+        Retrieve self.DataFrame from connected database using self.sql and
+        self.connection.
+        """
         def _get_data_1(
                 backup_folder_location: str = self._backup_folder_location,
                 dataset_name: str = self._dataset_name,
@@ -88,11 +85,10 @@ class Data(_Data):
 
     def _get_temp_file(self) -> None:
         """
-        Create .File and writes ._DataFrame to it.
-
-        File will always use gzip compression and end in .gz. Overwriting may
-        cause a critical error and data corruption. Wait for any previous file
-        write to complete.
+        Creates self.File and writes self._DataFrame to it. File will always
+        use gzip compression and end in .gz. Overwriting may cause a critical
+        error and data corruption. Will wait for any previous file write to
+        complete.
         """
 
         def _get_temp_file_1(
@@ -121,14 +117,13 @@ class Data(_Data):
         self._File.add_done_callback(_get_temp_file_2)
         dd.fire_and_forget(self._File)
 
-    # %%% Public
-    # %%%% Properties
+
     @property
     def dataset_name(self) -> str:
         """
-        Name of .File.
-
-        Changing this attribute will result in the creation of a new file.
+        Name that will be used to name self.File, where self.DataFrame
+        will be written. Changing this attribute will result in the creation of
+        a new file.
         """
         return self._dataset_name
 
@@ -142,10 +137,9 @@ class Data(_Data):
     @property
     def sql(self) -> str:
         """
-        Query used to get data contained in .DataFrame and .File.
-
-        Changing this property will result in the query being re-run and the
-        creation of a new file.
+        SQL string used to query data contained in self.DataFrame and
+        self.File. Changing this property will result in the query being re-run
+        and the creation of a new file.
         """
         return self._sql
 
@@ -158,9 +152,8 @@ class Data(_Data):
     @property
     def connection(self) -> object:
         """
-        Object used to connect to database.
-
-        Changing will close the current connection immediately.
+        Connection object used to query data from connected database. Changing
+        this property will close the current connection immediately.
         """
         return self._connection
 
@@ -172,7 +165,9 @@ class Data(_Data):
 
     @property
     def DataFrame(self) -> pd.DataFrame:
-        """Object holding data from query in RAM."""
+        """
+        DataFrame object holding data from query in memory
+        """
         return self._DataFrame
 
     @DataFrame.setter
@@ -182,20 +177,9 @@ class Data(_Data):
 
     @property
     def File(self) -> object:
-        """
-        Object holding data from query on disk.
-
-        Changing will delete the current file immediately.
-        """
+        
         return self._File
 
-    @File.setter
-    def _set_File(self, File: object) -> None:
-        if self._File is not None:
-            self._File.close()
-        self._File = File
-
-    # %%%% Processes
     def _cross_query(self,
                      dataframe_input: pd.DataFrame,
                      column_list: List[str],
@@ -204,12 +188,10 @@ class Data(_Data):
                      final_columns: List[str] = None,
                      compress_columns: List[str] = None) -> object:
         """
-        For experimental use.
-
-        Append column_list to dataframe_input from data from another query.
-        Wil dynamically build queries based on values in each row of
-        dataframe_input and execute while utilizing dask for multithread
-        scheduling.
+        For experimental use. Append column_list to dataframe_input from data
+        from another query. Wil dynamically build queries based on values in
+        each row of dataframe_input and execute while utilizing dask for
+        multithread scheduling.
 
         Parameters
         ----------
@@ -329,7 +311,7 @@ class Data(_Data):
                      columns_2: List[str] = None,
                      columns_final: List[str] = None) -> object:
         """
-        Merge two parquet files into one.
+        Merges two parquet files into one.
 
         Parameters
         ----------
@@ -396,5 +378,4 @@ class Data(_Data):
              join_type: str,
              join_columns: List[str],
              group_columns: List[str] = []) -> _Data:
-        """Edit this."""
         pass

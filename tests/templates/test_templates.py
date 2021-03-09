@@ -17,7 +17,10 @@ import pandas as pd
 from reportio.templates import ReportTemplate, write_config
 
 
-# %% Classes
+def test_write_config(self):
+    pass
+
+
 class test_ReportTemplate(ReportTemplate):
     # %%% Functions
     # %%%% Private

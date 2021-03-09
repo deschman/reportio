@@ -10,11 +10,9 @@ from typing import List
 import pytest
 import pandas as pd
 
-# %%% User-Defined
 from reportio.templates.simple import SimpleReport
 
 
-# %% Classes
 class test_SimpleReport(SimpleReport):
 
     # %%% Functions
