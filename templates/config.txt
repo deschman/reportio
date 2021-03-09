@@ -1,22 +1,18 @@
 [DEFAULT]
-self_dir = c:\users\deschman\spyder-env\lib\site-packages\reportio\templates
-self_folder = c:\users\deschman\spyder-env\lib\site-packages\reportio
+self_dir =
+self_folder =
 
 [PATHS]
-self_dir = C:\Users\deschman\spyder-env\Lib\site-packages\reportio
-self_folder = C:\Users\deschman\spyder-env\Lib\site-packages
+self_dir =
+self_folder =
 
 [DB]
-datawhse = DSN=datawhse;Trusted_Connection=yes;
-ozark1 = DSN=ozark1;Trusted_Connection=yes;
-sailfishprod = DSN=SailfishProd;Trusted_Connection=yes;
 sqlite = ${DEFAULT:self_folder}\sample.db
-access = reserved for use at runtime, not implemented
 
 [REPORT]
 temp_files_folder = ${PATHS:self_dir}\_temp_files
 backup_folder = ${PATHS:self_dir}\_backup
-report_name = Yearly Sales
+report_name = reserved for use at runtime
 export_to = ${PATHS:self_folder}\${report_name}.xlsx
 import_from = reserved for use at runtime, not implemented
 
@@ -24,12 +20,11 @@ import_from = reserved for use at runtime, not implemented
 db_location = ${DEFAULT:self_folder}\sample.db
 
 [odbc]
-connection_string = 
+connection_string =
 
 [jdbc]
-class_name = 
-url = 
-user = 
-password = 
-jars = 
-
+class_name =
+url =
+user =
+password =
+jars =

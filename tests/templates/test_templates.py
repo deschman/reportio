@@ -4,7 +4,7 @@
 # %% Imports
 # %%% Py3 Standard
 import os
-from typing import Dict
+from typing import Dict, List
 import sqlite3
 import tempfile
 
@@ -14,11 +14,13 @@ import dask.distributed as dd
 import pandas as pd
 
 # %%% User-Defined
-from reportio.templates import ReportTemplate
+from reportio.templates import ReportTemplate, write_config
 
 
 # %% Classes
 class test_ReportTemplate(ReportTemplate):
+    # %%% Functions
+    # %%%% Private
     def __init__(self,
                  report_name: str = 'test',
                  log_location: str = os.path.join(
@@ -34,6 +36,13 @@ class test_ReportTemplate(ReportTemplate):
                          connection_dictionary,
                          client,
                          optional_function)
+
+    # %%%% Public
+    def run(self):
+        self.file = self.get_data('test_data',
+                                  "SELECT * FROM CATEGORY",
+                                  'sqlite')[0]
+        self.export_data(self.file, self.config['REPORT']['export_to'])
 
     def test_get_connection(self,
                             database_name: str = 'test',
@@ -77,23 +86,41 @@ class test_ReportTemplate(ReportTemplate):
                          report_location: str = '',
                          sheet: str = '',
                          excel_writer: str = ''):
+        file = self.file
         self.location = super().export_data(
             file, report_location, sheet, excel_writer)
         assert isinstance(self.loction, str)
 
     def test_run(self):
-        pass
+        self.run()
+        assert True
 
     def test_backup_data(self):
-        pass
+        super().backup_data()
+        temp_files: List[str] = [file for file in
+                                 os.listdir(self.temp_files_location)
+                                 if file.split('.')[-1] == 'gz']
+        backup_files: List[str] = [file for file in
+                                   os.listdir(self.backup_folder_location)
+                                   if file.split('.')[-1] == 'gz']
+        assert temp_files == backup_files
 
     def test_attempt_resume(self):
-        pass
+        backed_up_files: List[str] = super().attempt_resume()
+        backup_files: List[str] = [file for file in
+                                   os.listdir(self.backup_folder_location)
+                                   if file.split('.')[-1] == 'gz']
+        assert backed_up_files == backup_files
 
     def test_delete_data_backup(self):
-        pass
+        super().delete_data_backup()
+        backup_files: List[str] = [file for file in
+                                   os.listdir(self.backup_folder_location)
+                                   if file.split('.')[-1] == 'gz']
+        assert len(backup_files) == 0
 
 
 # %% Functions
 def test_write_config(self):
-    pass
+    write_config()
+    assert True

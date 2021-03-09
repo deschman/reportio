@@ -4,6 +4,7 @@
 # %% Imports
 # %%% Py3 Standard
 import os
+from typing import List
 
 # %%% 3rd Party
 import pytest
@@ -16,6 +17,8 @@ from reportio.templates.simple import SimpleReport
 # %% Classes
 class test_SimpleReport(SimpleReport):
 
+    # %%% Functions
+    # %%%% Private
     def __init__(self,
                  report_name: str = 'test',
                  log_location: str = os.path.join(
@@ -30,49 +33,67 @@ class test_SimpleReport(SimpleReport):
                               'db_location'])) -> None:
         super().__init__(report_name, log_location, config_location, metadata)
 
-        def test__define_optional_functions():
-            super()._define_optional_functions()
-
+        # %%%%% Functions
+        def test__define_optional_functions(self):
+            # %%%%%% Functions
             def test__backup_metadata():
                 super()._define_optional_functions()._backup_metadata()
+                assert True
 
             def test__delete_excel_files():
                 super()._define_optional_functions()._delete_excel_files()
+                assert True
 
             def test__restore_metadata():
                 super()._define_optional_functions()._restore_metadata()
+                assert True
 
-    def test__delete_data_backup():
-        pass
+            # %%%%%% Script
+            super()._define_optional_functions()
+            assert True
 
-    def test__attempt_resume():
-        pass
+    # %%%% Public
+    def test_backup_data(self):
+        super().backup_data()
+        temp_files: List[str] = [file for file in
+                                 os.listdir(self.temp_files_location)
+                                 if file.split('.')[-1] == 'gz']
+        backup_files: List[str] = [file for file in
+                                   os.listdir(self.backup_folder_location)
+                                   if file.split('.')[-1] == 'gz']
+        assert temp_files == backup_files
 
-    def test__get_writer():
-        pass
+    def test_export_data(self, file: object = None, report_location: str = ''):
+        file = self.file
+        self.location = super().export_data(file, report_location)
+        assert isinstance(self.loction, str)
 
-    def test_backup_data():
-        pass
+    def test_add_query(self):
+        metadata_length_before: List[str] = len(self.metadata)
+        self.add_query()
+        metadata_length_after: List[str] = len(self.metadata)
+        assert metadata_length_before + 1 == metadata_length_after
 
-    def test_export_data():
-        pass
+    def test_remove_query(self, query_name: str = ''):
+        metadata_length_before: List[str] = len(self.metadata)
+        self.remove_query(query_name)
+        metadata_length_after: List[str] = len(self.metadata)
+        assert metadata_length_before - 1 == metadata_length_after
 
-    def test_add_query():
-        pass
+    def test_rename(self, name: str = 'test_renamed'):
+        self.rename(name)
+        assert self.name == name
 
-    def test_remove_query():
-        pass
+    def test_reset(self):
+        self.reset()
+        assert True
 
-    def test_rename():
-        pass
-
-    def test_reset():
-        pass
-
-    def test_run():
-
+    def test_run(self):
+        # %%%% Functions
         def test__process_queries():
             pass
+        # %%%% Script
+        assert True
 
 
 # %% Script

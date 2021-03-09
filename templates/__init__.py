@@ -4,22 +4,48 @@ Contains base template class for report objects.
 
 Example
 -------
+import os
+
 from reportio import ReportTemplate
 
 
 # Create report object at runtime
 class Report(ReportTemplate):
 
-    def __init__(self):
-        pass
+    def __init__(self,
+                 report_name: str = 'test',
+                 log_location: str = os.path.join(
+                     os.path.dirname(__file__), 'simple_log.txt'),
+                 config_location: str = os.path.join(
+                     os.path.dirname(__file__), 'simple_config.txt'),
+                 connection_dictionary: Dict[str, object] = {},
+                 client: dd.Client = None,
+                 optional_function: callable = None) -> None:
+        super().__init__(report_name,
+                         log_location,
+                         config_location,
+                         connection_dictionary,
+                         client,
+                         optional_function)
 
-# Add queries to report object
-report.add_query("Category", "SELECT * FROM CATEGORY", 'sqlite')
-report.add_query("Subcategory", "SELECT * FROM SUB_CATEGORY", 'sqlite')
-report.add_query("Segment", "SELECT * FROM SEGMENT", 'sqlite')
+    # 'run' method must be instantiated
+    def run(self):
+        write_config()
+        self.file = self.test_get_data(connection=self.test_get_connection())[0]
+        self.test_backup_data()
 
-# Process and export
-report.run()
+
+# Script report object to run
+if __name__ == '__main__':
+    report = Report()
+    try:
+        report.run()
+    except Exception:
+        report.log("See log for debug details", 'CRITICAL')
+        report.backup_data()
+        report.log("Backup successful")
+        input("PRESS ENTER KEY TO QUIT")
+        report.log("QUITTING")
 """
 
 
@@ -519,7 +545,7 @@ class ReportTemplate(ABC):
             Name for dataset. Cannot use '__', for file path.
         sql : string
             SQL statement as a string. Should be formatted for desired database
-        db_type : {{0}}, optional
+        db_type : [sections in config file], optional
             Either db_type or connection_object must be provided to connect to
             database.
         connection_object : connection_object, optional
