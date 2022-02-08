@@ -1,18 +1,21 @@
 [DEFAULT]
-self_dir = reserved for use at runtime
-self_folder = reserved for use at runtime
+self_dir = c:\users\deschman\spyder-env\lib\site-packages\reportio\templates
+self_folder = c:\users\deschman\spyder-env\lib\site-packages\reportio
 
 [PATHS]
-self_dir = reserved for use at runtime
-self_folder = reserved for use at runtime
+self_dir = c:\users\deschman\documents\scripts\job_status_report
+self_folder = c:\users\deschman\documents\scripts
 
 [DB]
+datawhse = DSN=datawhse;TrustedConnection=Yes
+ozark1 = DSN=ozark1;TrustedConnection=Yes
+sailfishprod = DSN=SailfishProd;TrustedConnection=Yes
 sqlite = ${DEFAULT:self_folder}\sample.db
 
 [REPORT]
 temp_files_folder = ${PATHS:self_dir}\_temp_files
 backup_folder = ${PATHS:self_dir}\_backup
-report_name = reserved for use at runtime
+report_name = Job Status
 export_to = ${PATHS:self_folder}\${report_name}.xlsx
 import_from = reserved for use at runtime, not implemented
 
@@ -20,11 +23,12 @@ import_from = reserved for use at runtime, not implemented
 db_location = ${DEFAULT:self_folder}\sample.db
 
 [odbc]
-connection_string =
+connection_string = 
 
 [jdbc]
-class_name =
-url =
-user =
-password =
-jars =
+class_name = 
+url = 
+user = 
+password = 
+jars = 
+

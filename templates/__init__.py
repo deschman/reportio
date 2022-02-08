@@ -378,10 +378,9 @@ class ReportTemplate(ABC):
                 self.log("Unable to connect!", 'ERROR')
                 self.log("Attempting login with UID/PWD from user.", 'DEBUG')
                 user_id: str = input("Enter USERNAME: ")
-                from getpass import getpass
                 password: str = getpass("Enter PASSWORD: ")
-                connection_string = 'UID=' + user_id +\
-                    ';PWD=' + password + ';' + connection_string
+                connection_string =  connection_string + ';UID=' + user_id +\
+                    ';PWD=' + password
         connection_object = self.connection_dictionary.get(database_name)
         self.log("Using connection object '{0}'".format(connection_object),
                  'DEBUG')
@@ -445,8 +444,8 @@ class ReportTemplate(ABC):
                         "Attempting login with UID/PWD from user.", 'DEBUG')
                     user_id: str = input("Enter USERNAME: ")
                     password: str = getpass("Enter PASSWORD: ")
-                    connection_string = 'UID=' + user_id +\
-                        ';PWD=' + password + ';' + connection_string
+                    connection_string = connection_string + ';UID=' + \
+                        user_id + ';PWD=' + password
             elif connection_type == 'jdbc':
                 import jaydebeapi as jdbc
                 if self.config[database]['password'] == '':
@@ -1220,8 +1219,8 @@ class ReportTemplate_2(ABC):
                         "Attempting login with UID/PWD from user.", 'DEBUG')
                     user_id: str = input("Enter USERNAME: ")
                     password: str = getpass("Enter PASSWORD: ")
-                    connection_string = 'UID=' + user_id +\
-                        ';PWD=' + password + ';' + connection_string
+                    connection_string = connection_string + ';UID=' + \
+                        user_id + ';PWD=' + password
             elif connection_type == 'jdbc':
                 import jaydebeapi as jdbc
                 if self.config[database]['password'] == '':
